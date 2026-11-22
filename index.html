@@ -182,6 +182,15 @@ input[type=file]{padding:9px;font-size:.85rem}
   #relatorio tr{break-inside:avoid}
   @page{margin:14mm}
 }
+
+.voz{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.micbtn{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:var(--accent);color:#1c1200;display:grid;place-items:center}
+.micbtn svg{width:22px;height:22px}
+.micbtn.ouvindo{background:var(--bad);color:#fff;animation:pulsa 1.2s infinite}
+@keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(248,113,113,.6)}70%{box-shadow:0 0 0 12px rgba(248,113,113,0)}100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}}
+.vozTxt{font-size:.88rem}
+.vozInfo:empty{display:none}
+.vozInfo{margin:0 0 4px}
 </style>
 </head>
 <body>
@@ -250,6 +259,8 @@ input[type=file]{padding:9px;font-size:.85rem}
   <section id="tab-abast" class="hidden">
     <div class="card">
       <h2 id="fTitle">Novo abastecimento</h2>
+      <div class="voz" data-voz="f"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="km 84900, 10 litros, 62 reais, posto Shell" enterkeyhint="done" autocomplete="off"></div>
+      <div class="note vozInfo"></div>
       <form id="fForm">
         <input type="hidden" name="id">
         <div class="row">
@@ -278,6 +289,8 @@ input[type=file]{padding:9px;font-size:.85rem}
   <section id="tab-manut" class="hidden">
     <div class="card">
       <h2 id="mTitle">Nova manutenção</h2>
+      <div class="voz" data-voz="m"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="troca de óleo, 84900 km, 55 reais, oficina do Zé" enterkeyhint="done" autocomplete="off"></div>
+      <div class="note vozInfo"></div>
       <form id="mForm">
         <input type="hidden" name="id">
         <div class="row">
@@ -304,6 +317,8 @@ input[type=file]{padding:9px;font-size:.85rem}
   <section id="tab-gastos" class="hidden">
     <div class="card">
       <h2 id="gTitle">Novo gasto</h2>
+      <div class="voz" data-voz="g"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="IPVA 310 reais" enterkeyhint="done" autocomplete="off"></div>
+      <div class="note vozInfo"></div>
       <form id="gForm">
         <input type="hidden" name="id">
         <div class="row">
@@ -892,6 +907,154 @@ function conferirAbastecimento(o){
   return { avisos };
 }
 
+// ---------- registro por voz: interpreta frases como "km 84.900, 10 litros, 62 reais, posto Shell" ----------
+const semAcento = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const PALAVRAS_NUM = { zero:0, um:1, uma:1, dois:2, duas:2, tres:3, quatro:4, cinco:5, seis:6, sete:7, oito:8, nove:9, dez:10, onze:11, doze:12,
+  treze:13, quatorze:14, catorze:14, quinze:15, dezesseis:16, dezasseis:16, dezessete:17, dezoito:18, dezenove:19, vinte:20, trinta:30, quarenta:40,
+  cinquenta:50, sessenta:60, setenta:70, oitenta:80, noventa:90, cem:100, cento:100, duzentos:200, duzentas:200, trezentos:300, trezentas:300,
+  quatrocentos:400, quinhentos:500, seiscentos:600, setecentos:700, oitocentos:800, novecentos:900 };
+const UNID = {
+  km: ['km','kms','quilometro','quilometros','quilometragem','odometro','hodometro','painel','marcando'],
+  litros: ['litro','litros','l','lts','lt'],
+  valor: ['real','reais','r$','valor','total','paguei','deu','conto','contos','pila','pilas'],
+};
+const unidadeDe = w => { const n = semAcento(w || ''); for (const [k, ls] of Object.entries(UNID)) if (ls.includes(n)) return k; return null; };
+
+function tokensFala(texto){
+  const re = /r\$|\d+(?:[.,]\d+)*|[a-zà-ÿç]+|[,;!?]|\.(?=\s|$)/gi;
+  return (texto.match(re) || []).map(t => {
+    if (/^\d/.test(t)){
+      let v;
+      if (t.includes(',')) v = Number(t.replace(/\./g, '').replace(',', '.'));
+      else if (/^\d{1,3}(\.\d{3})+$/.test(t)) v = Number(t.replace(/\./g, ''));
+      else v = Number(t);
+      return { t, n: v, dig: true };
+    }
+    const s = semAcento(t);
+    if (s in PALAVRAS_NUM) return { t, n: PALAVRAS_NUM[s], palavra: true };
+    return { t, s };
+  });
+}
+
+// Junta números falados ("oitenta e quatro mil e novecentos", "84 mil e 900", "10 vírgula 5").
+function numerosFala(tk){
+  const out = []; let q = null;
+  const fechar = () => { if (q){ out.push({ v: q.total + q.cur, i: q.i, j: q.j }); q = null; } };
+  for (let i = 0; i < tk.length; i++){
+    const x = tk[i];
+    if (x.n !== undefined){
+      const pode = q && x.n < 1000 && ((q.mil && !q.depoisMil) || (q.e && (q.mil || q.palavra) && x.n < q.ultimo));
+      if (pode){ q.cur += x.n; q.ultimo = x.n; q.j = i; q.e = false; if (q.mil) q.depoisMil = true; q.palavra = !!x.palavra; }
+      else { fechar(); q = { total: 0, cur: x.n, ultimo: x.n, i, j: i, palavra: !!x.palavra, mil: false, e: false }; }
+    } else if (x.s === 'mil'){
+      if (!q) q = { total: 0, cur: 1, ultimo: 1000, i, j: i, palavra: true };
+      q.total += (q.cur || 1) * 1000; q.cur = 0; q.ultimo = 1000; q.mil = true; q.depoisMil = false; q.e = false; q.j = i;
+    } else if (x.s === 'e' && q){ q.e = true; }
+    else if ((x.s === 'virgula' || x.s === 'ponto') && q && tk[i+1] && tk[i+1].n !== undefined){
+      const d = tk[i+1]; q.cur += d.n / 10 ** String(d.dig ? d.t.replace(/\D/g, '') : d.n).length; q.j = i + 1; i++; fechar();
+    } else fechar();
+  }
+  fechar();
+  return out;
+}
+
+const SERVICO_FALA = [
+  [/oleo/, 'Troca de óleo'], [/kit|relacao|coroa|pinhao/, 'Kit relação (corrente, coroa, pinhão)'], [/corrente|lubrific/, 'Lubrificar / ajustar corrente'],
+  [/filtro/, 'Filtro de ar'], [/vela/, 'Vela de ignição'], [/pastilha/, 'Pastilhas de freio dianteiro'], [/lona|sapata/, 'Lona / sapata freio traseiro'],
+  [/fluido/, 'Fluido de freio'], [/pneu.*(diant|frente)/, 'Pneu dianteiro'], [/pneu.*(tras)/, 'Pneu traseiro'], [/revisao/, 'Revisão geral'], [/bateria/, 'Bateria'],
+];
+const CAT_FALA = [
+  [/ipva|licenciamento/, 'IPVA / Licenciamento'], [/seguro/, 'Seguro'], [/multa/, 'Multa'], [/estacion/, 'Estacionamento'], [/pedagio/, 'Pedágio'],
+  [/lava/, 'Lavagem'], [/acessorio|capacete|luva|jaqueta|bau|equipamento/, 'Acessórios / Equipamento'], [/documento|despachante|cnh|vistoria/, 'Documentação'],
+];
+
+function interpretarFala(texto){
+  const tk = tokensFala(texto), nums = numerosFala(tk), r = {}, frase = semAcento(texto);
+  // Cada palavra-chave se liga ao número antes ou depois dela.
+  // "valor 62", "R$ 62", "quilometragem 85.120": palavra antes do número.
+  // "10 litros", "62 reais": palavra depois. "km" serve para os dois lados.
+  const PREFIXO = ['valor','total','r$','quilometragem','odometro','hodometro','painel','marcando','paguei','deu'];
+  const porFim = {}, porIni = {}; nums.forEach(nm => { porFim[nm.j] = nm; porIni[nm.i] = nm; });
+  tk.forEach((x, k) => {
+    const u = unidadeDe(x.t); if (!u || r[u] !== undefined) return;
+    const antes = porFim[k-1], depois = porIni[k+1], pre = PREFIXO.includes(semAcento(x.t));
+    let alvo = pre ? (depois && !depois.ok ? depois : null) : (antes && !antes.ok ? antes : (depois && !depois.ok ? depois : null));
+    if (alvo){ r[u] = alvo.v; alvo.ok = true; }
+  });
+  // centavos: "62 reais e 50 centavos"
+  for (const nm of nums){ const w = tk[nm.j+1] && tk[nm.j+1].s; if (!nm.ok && (w === 'centavos' || w === 'centavo')){ r.valor = (r.valor || 0) + nm.v / 100; nm.ok = true; } }
+  r.soltos = nums.filter(n => !n.ok).map(n => n.v);
+  // posto / oficina: texto depois da palavra até a próxima vírgula, número ou palavra-chave
+  const nomeApos = chave => {
+    const i = tk.findIndex(x => x.s === chave); if (i < 0) return null;
+    const ps = [];
+    for (let j = i + 1; j < tk.length; j++){ const x = tk[j]; if (x.n !== undefined || /^[,;.!?]$/.test(x.t) || unidadeDe(x.t) || ['e','com','no','na','tanque','completei','cheio','parcial','gasolina','etanol','alcool'].includes(x.s)) { if (ps.length) break; else if (['no','na','do','da'].includes(x.s)) continue; else break; } ps.push(x.t); }
+    while (ps.length > 1 && ['do','da','de','dos','das'].includes(semAcento(ps[0]))) ps.shift();
+    return ps.length ? ps.map(p => p.length > 2 ? p[0].toUpperCase() + p.slice(1) : p).join(' ') : null;
+  };
+  r.posto = nomeApos('posto'); r.oficina = nomeApos('oficina') || nomeApos('mecanico');
+  if (/nao (completei|enchi)|parcial|sem completar|meio tanque/.test(frase)) r.cheio = false;
+  else if (/tanque cheio|completei|enchi o tanque|completo/.test(frase)) r.cheio = true;
+  if (/etanol|alcool/.test(frase)) r.comb = 'Etanol'; else if (/aditivada/.test(frase)) r.comb = 'Gasolina aditivada'; else if (/premium|podium/.test(frase)) r.comb = 'Gasolina premium'; else if (/gasolina/.test(frase)) r.comb = 'Gasolina comum';
+  for (const [re, s] of SERVICO_FALA) if (re.test(frase)) { r.servico = s; break; }
+  for (const [re, c] of CAT_FALA) if (re.test(frase)) { r.cat = c; break; }
+  return r;
+}
+
+// Preenche o formulário com o que foi entendido. O usuário confere e salva (as travas continuam valendo).
+function aplicarFala(t, texto){
+  const r = interpretarFala(texto), f = forms[t], feitos = [];
+  const tq = Number(db.config.tanque) || 16;
+  for (const v of r.soltos){
+    if (t !== 'g' && v >= 1000 && r.km === undefined) r.km = v;
+    else if (t === 'f' && r.litros === undefined && v <= tq * 2.5) r.litros = v;
+    else if (r.valor === undefined) r.valor = v;
+  }
+  const por = (campo, v, rot) => { if (v === undefined || v === null || !f[campo]) return; if (f[campo].dataset.mask) fmtMask(f[campo], v); else f[campo].value = v; feitos.push(rot(f[campo].value)); };
+  if (t !== 'g') por('km', r.km, v => `Km ${v}`);
+  if (t === 'f'){ por('litros', r.litros, v => `${v} L`); }
+  por('valor', r.valor, v => v);
+  if (t === 'f'){
+    por('posto', r.posto, v => `Posto ${v}`);
+    if (r.comb){ f.comb.value = r.comb; feitos.push(r.comb); }
+    if (r.cheio !== undefined){ f.cheio.checked = r.cheio; feitos.push(r.cheio ? 'tanque cheio' : 'parcial'); }
+    atualizaPpl();
+  }
+  if (t === 'm'){
+    if (r.servico){ f.servico.value = r.servico; $('#mOutroBox').classList.add('hidden'); feitos.push(r.servico); }
+    por('oficina', r.oficina, v => `Oficina ${v}`);
+  }
+  if (t === 'g'){
+    if (r.cat){ f.cat.value = r.cat; feitos.push(r.cat); }
+    else if (!f.desc.value){ f.desc.value = texto; feitos.push('descrição'); }
+  }
+  const info = f.closest('.card').querySelector('.vozInfo');
+  info.innerHTML = feitos.length ? `Preenchido: <b>${feitos.map(esc).join(' · ')}</b>. Confira e toque em Salvar.`
+    : 'Não entendi os números. Tente algo como "km 84900, 10 litros, 62 reais".';
+}
+
+const Reconhecedor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let ouvindo = null;
+function prepararVoz(){
+  document.querySelectorAll('.voz').forEach(box => {
+    const t = box.dataset.voz, btn = box.querySelector('.micbtn'), txt = box.querySelector('.vozTxt');
+    if (!Reconhecedor){ btn.classList.add('hidden'); txt.placeholder = 'Dite pelo microfone do teclado: ' + txt.placeholder; }
+    txt.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); if (txt.value.trim()) aplicarFala(t, txt.value); txt.blur(); } });
+    txt.addEventListener('change', () => { if (txt.value.trim()) aplicarFala(t, txt.value); });
+    btn.addEventListener('click', () => {
+      if (ouvindo){ ouvindo.stop(); return; }
+      const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.maxAlternatives = 1;
+      ouvindo = rec; btn.classList.add('ouvindo'); txt.value = ''; txt.placeholder = 'Ouvindo… fale agora';
+      let final = '';
+      rec.onresult = e => { let parcial = ''; for (const res of e.results){ if (res.isFinal) final = res[0].transcript; else parcial += res[0].transcript; } txt.value = final || parcial; };
+      rec.onerror = e => { toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : e.error === 'no-speech' ? 'Não ouvi nada. Tente de novo.' : 'Erro no reconhecimento de voz: ' + e.error); };
+      rec.onend = () => { ouvindo = null; btn.classList.remove('ouvindo'); txt.placeholder = txt.dataset.ph; if (txt.value.trim()) aplicarFala(t, txt.value); };
+      try { rec.start(); } catch (err) { ouvindo = null; btn.classList.remove('ouvindo'); toast('Não consegui usar o microfone.'); }
+    });
+    txt.dataset.ph = txt.placeholder;
+  });
+}
+
 // ---------- formulários ----------
 const colecao = { f:'abastecimentos', m:'manutencoes', g:'gastos' };
 const forms = { f:$('#fForm'), m:$('#mForm'), g:$('#gForm') };
@@ -910,6 +1073,7 @@ function resetForm(t){
   if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; }
   if (t === 'm') $('#mOutroBox').classList.add('hidden');
   f.foto.value = ''; f.querySelector('.fotoAtual').textContent = '';
+  const card = f.closest('.card'); card.querySelector('.vozTxt').value = ''; card.querySelector('.vozInfo').textContent = '';
   $(titulos[t][0]).textContent = titulos[t][1];
   f.querySelector('[data-cancel]').classList.add('hidden');
 }
@@ -1070,6 +1234,8 @@ document.querySelectorAll('#periodo button').forEach(b => b.addEventListener('cl
 }));
 $('#relGerar').addEventListener('click', () => gerarRelatorio($('#relAno').value));
 $('#btnCfg').addEventListener('click', () => abrir('ajustes'));
+
+prepararVoz();
 
 function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); }
 load(); init();
