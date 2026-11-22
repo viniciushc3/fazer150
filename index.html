@@ -212,6 +212,15 @@ input.big{font-size:1.25rem;font-weight:700;padding:14px 16px}
 .fotoBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fotoBtns .btn{margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;padding:12px 8px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 body.sheet-aberta main{display:none}
+.avisoTroca{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(5,8,12,.7)}
+.avisoTroca.open{display:flex}
+.avisoTroca .card{width:100%;max-width:420px;margin:0;border:2px solid var(--warn)}
+.avisoTroca ul{margin:8px 0 16px;padding-left:20px;font-size:1.1rem;font-weight:700;line-height:1.6}
+.avisoTroca .btn{margin:0}
+.instalarBanner{position:fixed;left:12px;right:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 78px);z-index:6;max-width:520px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;background:var(--card2);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.45);font-weight:600;font-size:.9rem}
+.instalarBanner.hidden{display:none}
+.instalarBanner span{flex:1}
+.instalarBanner .btn{margin:0;width:auto;padding:10px 16px;font-size:.9rem}
 body.sheet-aberta .hdate{display:none}
 .sheet.open{display:block;position:static;background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
 .sheet.open .sheet-card{height:auto;max-width:640px;margin:14px auto 0;width:calc(100% - 24px);border:1px solid var(--line);border-radius:20px;padding:14px 18px 18px;overflow:visible;animation:none}
@@ -347,7 +356,16 @@ body.sheet-aberta .hdate{display:none}
       <h2>Intervalos de manutenção</h2>
       <p class="note">Valores sugeridos para a Fazer 150, baseados em uso urbano comum. Confira no manual da sua moto. O lembrete vence pelo que chegar primeiro: km ou meses. Use 0 para não usar o critério.</p>
       <div id="cfgInt"></div>
+      <h2 style="margin-top:18px">Resumo semanal por e-mail</h2>
+      <label class="check"><input type="checkbox" id="cfgEmail"> Receber toda segunda às 8h</label>
+      <p class="note">Gasto da semana e do mês, consumo médio e as próximas trocas, enviado para o e-mail dono da planilha. Precisa da planilha conectada e de rodar uma vez a função <b>instalarResumoSemanal</b> no Apps Script.</p>
       <button class="btn" id="cfgSalvar">Salvar ajustes</button>
+    </div>
+    <div class="card" id="instalarBox">
+      <h2>Instalar no celular</h2>
+      <button class="btn" id="btnInstalar" type="button">Instalar app</button>
+      <div id="instalarIOS" class="hidden"><p class="note">No iPhone, abra no Safari, toque em <b>Compartilhar</b> (quadrado com seta para cima) e escolha <b>Adicionar à Tela de Início</b>.</p></div>
+      <p class="note" id="instalarNota"></p>
     </div>
     <div class="card">
       <h2>Planilha Google</h2>
@@ -461,6 +479,12 @@ body.sheet-aberta .hdate{display:none}
   <div class="vmOuvi" id="vmOuvi"></div>
   <div class="vmBotoes"><button type="button" class="btn sec" id="vmRep">Repetir</button><button type="button" class="btn" id="vmOk">OK</button></div>
 </div>
+<div class="avisoTroca" id="avisoTroca" role="alertdialog" aria-labelledby="avisoTrocaT"><div class="card">
+  <h2 id="avisoTrocaT">🔧 Manutenção chegando</h2>
+  <ul id="avisoTrocaLista"></ul>
+  <div class="vmBotoes"><button type="button" class="btn sec" id="avisoTrocaVer">Ver saúde</button><button type="button" class="btn" id="avisoTrocaOk">Ok</button></div>
+</div></div>
+<div class="instalarBanner hidden" id="instalarBanner"><span>📲 Instale o Motolog no celular</span><button type="button" class="btn" id="instalarBannerBtn">Instalar</button><button type="button" class="icon-btn" id="instalarBannerX" aria-label="Agora não">✕</button></div>
 <div class="toast" id="toast"></div>
 <div id="relatorio"></div>
 
@@ -624,6 +648,31 @@ function kmAtual(){
   return Math.max(Number(db.config.km0)||0, ...kms, 0);
 }
 
+function calcSaude(km){
+  const saude = [], semReg = [];
+  const nomesSv = new Set([...Object.keys(db.config.intervalos), ...Object.keys(db.config.meses)]);
+  for (const nome of nomesSv){
+    const intv = Number(db.config.intervalos[nome]) || 0, meses = Number(db.config.meses[nome]) || 0;
+    if ((!intv && !meses) || nome === 'Outro') continue;
+    const feitas = db.manutencoes.filter(m => m.servico === nome).sort((a,b) => b.km - a.km || (b.data||'').localeCompare(a.data||''));
+    if (!feitas.length){ semReg.push(nome); continue; }
+    const u = feitas[0];
+    const kmFr = intv ? (km - u.km) / intv : -1;
+    const lim = meses ? addMeses(dt(u.data), meses) : null;
+    const dtFr = meses ? mesesEntre(dt(u.data), new Date()) / meses : -1;
+    saude.push({ nome, intv, meses, u, kmFr, dtFr, fr: Math.max(kmFr, dtFr), porKm: kmFr >= dtFr,
+                 falta: intv ? u.km + intv - km : null, dias: lim ? Math.round((lim - new Date()) / 864e5) : null, lim });
+  }
+  saude.sort((a,b) => b.fr - a.fr);
+  return { saude, semReg };
+}
+// Texto curto do que vence logo (>= 85% do intervalo), para avisar ao salvar.
+function trocasProximas(){
+  return calcSaude(kmAtual()).saude.filter(h => h.fr >= .85).map(h => h.fr >= 1
+    ? `${h.nome}: ${h.porKm ? 'atrasada em ' + num(-h.falta) + ' km' : 'venceu em ' + h.lim.toLocaleDateString('pt-BR')}`
+    : `${h.nome} em ${h.porKm ? num(h.falta) + ' km' : h.dias + ' dias'}`);
+}
+
 // Consumo entre tanques cheios. Retorna mapa id->km/l e média geral.
 function consumos(){
   const lista = [...db.abastecimentos].sort((a,b) => a.km - b.km);
@@ -739,21 +788,7 @@ function render(){
     : '<div class="empty">Nenhum gasto registrado ainda.</div>';
 
   // Saúde da moto (km e tempo: vence o que chegar primeiro)
-  const saude = [], semReg = [];
-  const nomesSv = new Set([...Object.keys(db.config.intervalos), ...Object.keys(db.config.meses)]);
-  for (const nome of nomesSv){
-    const intv = Number(db.config.intervalos[nome]) || 0, meses = Number(db.config.meses[nome]) || 0;
-    if ((!intv && !meses) || nome === 'Outro') continue;
-    const feitas = db.manutencoes.filter(m => m.servico === nome).sort((a,b) => b.km - a.km || (b.data||'').localeCompare(a.data||''));
-    if (!feitas.length){ semReg.push(nome); continue; }
-    const u = feitas[0];
-    const kmFr = intv ? (km - u.km) / intv : -1;
-    const lim = meses ? addMeses(dt(u.data), meses) : null;
-    const dtFr = meses ? mesesEntre(dt(u.data), new Date()) / meses : -1;
-    saude.push({ nome, intv, meses, u, kmFr, dtFr, fr: Math.max(kmFr, dtFr), porKm: kmFr >= dtFr,
-                 falta: intv ? u.km + intv - km : null, dias: lim ? Math.round((lim - new Date()) / 864e5) : null, lim });
-  }
-  saude.sort((a,b) => b.fr - a.fr);
+  const { saude, semReg } = calcSaude(km);
   $('#saude').innerHTML = saude.length ? saude.map(h => {
     let cor, txt;
     if (h.fr >= 1){ cor = 'var(--bad)'; txt = h.porKm ? `Atrasada em ${num(-h.falta)} km` : `Venceu em ${h.lim.toLocaleDateString('pt-BR')}`; }
@@ -1429,6 +1464,7 @@ for (const [t, f] of Object.entries(forms)){
     save(); fecharFolha(); render();
     const al = t === 'f' ? alertaConsumo(consumos().map) : null;
     if (al && al.id === o.id) toast(`Salvo. Atenção: consumo ${al.queda}% abaixo do normal.`); else toast('Salvo ✓');
+    if (t === 'f'){ const tr = trocasProximas(); if (tr.length) avisoTroca(tr); }
   });
 }
 
@@ -1465,10 +1501,44 @@ document.addEventListener('click', e => {
   abrirFolha(t, true);
 });
 
+function avisoTroca(itens){
+  $('#avisoTrocaLista').innerHTML = itens.map(x => `<li>${esc(x)}</li>`).join('');
+  $('#avisoTroca').classList.add('open');
+}
+$('#avisoTrocaOk').addEventListener('click', () => $('#avisoTroca').classList.remove('open'));
+$('#avisoTrocaVer').addEventListener('click', () => { $('#avisoTroca').classList.remove('open'); fecharFolha(); abrir('resumo'); setTimeout(() => $('#saude').scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); });
+
+// ---------- instalar o app ----------
+let pedidoInstalar = null;
+const instalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+function renderInstalar(){
+  const box = $('#instalarBox'), ban = $('#instalarBanner');
+  if (instalado()){ box.classList.add('hidden'); ban.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  $('#instalarIOS').classList.toggle('hidden', !ehIOS);
+  $('#btnInstalar').classList.toggle('hidden', ehIOS);
+  $('#instalarNota').textContent = ehIOS ? '' : pedidoInstalar ? 'Fica com ícone na tela inicial e abre em tela cheia, como um app normal.' : 'Se o botão não funcionar, use o menu do Chrome (⋮) e escolha "Instalar app" ou "Adicionar à tela inicial".';
+  let dispensado = false; try { dispensado = localStorage.getItem('motolog.instalarOff') === '1'; } catch {}
+  ban.classList.toggle('hidden', dispensado || (!pedidoInstalar && !ehIOS));
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalar = e; renderInstalar(); });
+window.addEventListener('appinstalled', () => { pedidoInstalar = null; renderInstalar(); toast('App instalado ✓'); });
+async function instalar(){
+  if (ehIOS){ fecharFolha(); abrir('ajustes'); setTimeout(() => $('#instalarBox').scrollIntoView({ block: 'center' }), 50); return; }
+  if (!pedidoInstalar){ toast('Use o menu do Chrome (⋮) e escolha "Instalar app".'); return; }
+  pedidoInstalar.prompt(); const r = await pedidoInstalar.userChoice.catch(() => null); pedidoInstalar = null; renderInstalar();
+  if (r && r.outcome === 'accepted') toast('Instalando…');
+}
+$('#btnInstalar').addEventListener('click', instalar);
+$('#instalarBannerBtn').addEventListener('click', instalar);
+$('#instalarBannerX').addEventListener('click', () => { try { localStorage.setItem('motolog.instalarOff', '1'); } catch {} renderInstalar(); });
+
 // ---------- ajustes ----------
 function renderCfg(){
   $('#cfgNome').value = db.config.nome; $('#cfgTanque').value = db.config.tanque; $('#cfgKm0').value = db.config.km0;
   $('#cfgAlKm').value = db.config.alertaKm; $('#cfgAlPreco').value = db.config.alertaPreco;
+  $('#cfgEmail').checked = !!db.config.emailSemanal;
   $('#cfgInt').innerHTML = '<div class="cfg"><span class="hh">Item</span><span class="hh">Km</span><span class="hh">Meses</span>' +
     Object.entries(db.config.intervalos).filter(([n]) => n !== 'Outro').map(([n, v]) =>
     `<span>${esc(n)}</span><input type="number" inputmode="numeric" min="0" data-int="${esc(n)}" value="${v}" aria-label="Intervalo em km"><input type="number" inputmode="numeric" min="0" data-mes="${esc(n)}" value="${db.config.meses[n] || 0}" aria-label="Prazo em meses">`
@@ -1480,6 +1550,7 @@ $('#cfgSalvar').addEventListener('click', () => {
   db.config.km0 = Number($('#cfgKm0').value) || 0;
   db.config.alertaKm = Number($('#cfgAlKm').value) || 0;
   db.config.alertaPreco = Number($('#cfgAlPreco').value) || 0;
+  db.config.emailSemanal = $('#cfgEmail').checked;
   document.querySelectorAll('[data-int]').forEach(i => db.config.intervalos[i.dataset.int] = Number(i.value) || 0);
   document.querySelectorAll('[data-mes]').forEach(i => db.config.meses[i.dataset.mes] = Number(i.value) || 0);
   save(); render(); toast('Ajustes salvos ✓');
@@ -1554,7 +1625,7 @@ for (const f of Object.values(forms)) ['fotoCam','fotoArq'].forEach((n, i, ns) =
   f.querySelector('.fotoAtual').textContent = 'Foto pronta: vai junto ao salvar ✓';
 }));
 
-function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); }
+function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); renderInstalar(); }
 load(); init();
 if (sync.url) baixar(true);
 abrir('abast'); abrirFolha('f'); // abre direto no registro de abastecimento

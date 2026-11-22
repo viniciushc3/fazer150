@@ -8,6 +8,10 @@
  * O script só lê e grava as abas que começam com "Motolog_". Ele nunca lê nem
  * devolve as outras abas (Usuarios, Página1, Manutencao, etc.).
  * As fotos de recibo vão para a pasta "Motolog Recibos" no seu Google Drive (só você vê).
+ *
+ * Resumo semanal por e-mail: depois de colar, escolha a função "instalarResumoSemanal"
+ * no topo do editor e clique em Executar (uma vez só). Ele pede permissão para enviar
+ * e-mail e passa a mandar o resumo toda segunda às 8h, se estiver ligado nos Ajustes do app.
  */
 const TOKEN = 'TROQUE-ESTA-SENHA';
 
@@ -136,4 +140,85 @@ function rev_() { return Number(getConfig_('rev')) || 0; }
 function tokenOk_(t) { return TOKEN !== 'TROQUE-ESTA-SENHA' && t === TOKEN; }
 function saida_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- resumo semanal por e-mail ----------
+// Rode esta função uma vez no editor (Executar) para criar o gatilho de toda segunda às 8h.
+function instalarResumoSemanal() {
+  desinstalarResumoSemanal();
+  ScriptApp.newTrigger('resumoSemanal').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(8).create();
+  Logger.log('Gatilho criado. O e-mail vai para ' + Session.getEffectiveUser().getEmail() + ' toda segunda às 8h (se ligado nos Ajustes do app).');
+}
+function desinstalarResumoSemanal() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'resumoSemanal') ScriptApp.deleteTrigger(t); });
+}
+// Para testar na hora: rode esta função no editor (envia mesmo com o aviso desligado).
+function testarResumoSemanal() { resumoSemanal(true); }
+
+function resumoSemanal(forcar) {
+  const db = ler_(), cfg = db.config || {};
+  if (forcar !== true && !cfg.emailSemanal) return;
+  const email = Session.getEffectiveUser().getEmail();
+  if (!email) return;
+  const tz = planilha_().getSpreadsheetTimeZone();
+  const fmtD = function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); };
+  const hoje = new Date(), ini7 = fmtD(new Date(hoje.getTime() - 7 * 864e5)), mes = fmtD(hoje).slice(0, 7);
+  const n = function (v) { return Number(v) || 0; };
+  const brl = function (v) { return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+  const kmf = function (v) { return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+  const todos = [].concat(db.abastecimentos, db.manutencoes, db.gastos || []);
+  let semana = 0, mesTot = 0, combMes = 0;
+  todos.forEach(function (x) { const d = String(x.data || ''); if (d > ini7) semana += n(x.valor); if (d.slice(0, 7) === mes) mesTot += n(x.valor); });
+  db.abastecimentos.forEach(function (a) { if (String(a.data || '').slice(0, 7) === mes) combMes += n(a.valor); });
+
+  // Consumo médio entre tanques cheios (igual ao app).
+  const ab = db.abastecimentos.slice().sort(function (a, b) { return n(a.km) - n(b.km); });
+  let kmTot = 0, lTot = 0, ult = null, acum = 0, ultimoKml = null;
+  ab.forEach(function (a) {
+    if (ult) { acum += n(a.litros); if (a.cheio) { const d = n(a.km) - n(ult.km); if (d > 0 && acum > 0) { kmTot += d; lTot += acum; ultimoKml = d / acum; } ult = a; acum = 0; } }
+    else if (a.cheio) { ult = a; acum = 0; }
+  });
+  const media = lTot ? kmTot / lTot : null;
+  const kmAtual = Math.max.apply(null, [n(cfg.km0)].concat(db.abastecimentos.map(function (a) { return n(a.km); }), db.manutencoes.map(function (m) { return n(m.km); })));
+
+  // Próximas trocas (km ou meses, o que vencer primeiro).
+  const intv = cfg.intervalos || {}, meses = cfg.meses || {}, trocas = [];
+  Object.keys(Object.assign({}, intv, meses)).forEach(function (nome) {
+    const ik = n(intv[nome]), im = n(meses[nome]);
+    if ((!ik && !im) || nome === 'Outro') return;
+    const feitas = db.manutencoes.filter(function (m) { return m.servico === nome; }).sort(function (a, b) { return n(b.km) - n(a.km); });
+    if (!feitas.length) return;
+    const u = feitas[0];
+    const frKm = ik ? (kmAtual - n(u.km)) / ik : -1;
+    let frDt = -1, dias = null;
+    if (im && u.data) {
+      const d0 = new Date(u.data + 'T12:00:00'), lim = new Date(d0); lim.setMonth(lim.getMonth() + im);
+      frDt = (hoje - d0) / (lim - d0); dias = Math.round((lim - hoje) / 864e5);
+    }
+    const fr = Math.max(frKm, frDt), porKm = frKm >= frDt, falta = n(u.km) + ik - kmAtual;
+    const txt = fr >= 1 ? (porKm ? 'atrasada em ' + kmf(-falta) + ' km' : 'venceu') : (porKm ? 'faltam ' + kmf(falta) + ' km' : 'faltam ' + dias + ' dias');
+    trocas.push({ nome: nome, fr: fr, txt: txt });
+  });
+  trocas.sort(function (a, b) { return b.fr - a.fr; });
+  const cor = function (fr) { return fr >= 1 ? '#dc2626' : fr >= 0.85 ? '#d97706' : '#16a34a'; };
+
+  const linhas = [
+    ['Gasto nos últimos 7 dias', brl(semana)],
+    ['Gasto no mês', brl(mesTot) + ' (combustível ' + brl(combMes) + ')'],
+    ['Consumo médio', media ? media.toFixed(1).replace('.', ',') + ' km/l' : '–'],
+    ['Último tanque', ultimoKml ? ultimoKml.toFixed(1).replace('.', ',') + ' km/l' : '–'],
+    ['Km atual', kmAtual ? kmf(kmAtual) + ' km' : '–'],
+  ];
+  const html = '<div style="font-family:Arial,sans-serif;max-width:520px">' +
+    '<h2 style="margin:0 0 12px">🏍️ Motolog · resumo da semana</h2>' +
+    '<table style="border-collapse:collapse;width:100%">' + linhas.map(function (l) {
+      return '<tr><td style="padding:6px 0;color:#555">' + l[0] + '</td><td style="padding:6px 0;text-align:right"><b>' + l[1] + '</b></td></tr>';
+    }).join('') + '</table>' +
+    '<h3 style="margin:18px 0 6px">Próximas trocas</h3>' +
+    (trocas.length ? '<ul style="padding-left:18px;margin:0">' + trocas.slice(0, 6).map(function (t) {
+      return '<li style="margin:4px 0"><b>' + t.nome + '</b>: <span style="color:' + cor(t.fr) + '">' + t.txt + '</span></li>';
+    }).join('') + '</ul>' : '<p style="color:#555">Nenhuma manutenção registrada ainda.</p>') +
+    '<p style="color:#888;font-size:12px;margin-top:18px">Para parar de receber, desligue em Ajustes no app.</p></div>';
+  const alerta = trocas.filter(function (t) { return t.fr >= 0.85; }).length;
+  MailApp.sendEmail({ to: email, subject: 'Motolog: ' + brl(semana) + ' na semana' + (alerta ? ' · ' + alerta + ' troca(s) chegando' : ''), htmlBody: html });
 }
