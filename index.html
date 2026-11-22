@@ -259,12 +259,9 @@ input[type=file]{padding:9px;font-size:.85rem}
           <div><label>Litros</label><input type="number" name="litros" step="0.01" inputmode="decimal" min="0" required></div>
           <div><label>Valor total (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
         </div>
-        <div class="row">
-          <div><label>Combustível</label>
-            <select name="comb"><option>Gasolina comum</option><option>Gasolina aditivada</option><option>Gasolina premium</option><option>Etanol</option></select>
-          </div>
-          <div><label>Preço/litro</label><input type="text" name="ppl" readonly tabindex="-1"></div>
-        </div>
+        <p class="note" id="fPpl" style="margin:8px 0 0;min-height:1.2em"></p>
+        <label>Combustível</label>
+        <select name="comb"><option>Gasolina comum</option><option>Gasolina aditivada</option><option>Gasolina premium</option><option>Etanol</option></select>
         <label>Posto (opcional)</label><input type="text" name="posto" list="postosList" autocomplete="off"><datalist id="postosList"></datalist>
         <label class="check"><input type="checkbox" name="cheio" checked> Completei o tanque</label>
         <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
@@ -868,7 +865,7 @@ function resetForm(t){
   f.data.value = hoje();
   if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + kmAtual() : '';
   if (f.km && t === 'm') f.km.value = kmAtual() || '';
-  if (t === 'f'){ f.cheio.checked = true; f.ppl.value = ''; }
+  if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; }
   if (t === 'm') $('#mOutroBox').classList.add('hidden');
   f.foto.value = ''; f.querySelector('.fotoAtual').textContent = '';
   $(titulos[t][0]).textContent = titulos[t][1];
@@ -913,7 +910,7 @@ for (const [t, f] of Object.entries(forms)){
 
 // preço por litro ao vivo
 const ff = forms.f;
-const atualizaPpl = () => { const l = +ff.litros.value, v = +ff.valor.value; ff.ppl.value = (l && v) ? brl(v/l) : ''; };
+const atualizaPpl = () => { const l = +ff.litros.value, v = +ff.valor.value; $('#fPpl').innerHTML = (l && v) ? `Preço por litro (calculado): <b style="color:var(--accent2)">${brl(v/l)}</b>` : ''; };
 ff.litros.addEventListener('input', atualizaPpl); ff.valor.addEventListener('input', atualizaPpl);
 $('#mServ').addEventListener('change', e => $('#mOutroBox').classList.toggle('hidden', e.target.value !== 'Outro'));
 
