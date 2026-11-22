@@ -211,7 +211,24 @@ input.big{font-size:1.25rem;font-weight:700;padding:14px 16px}
 .mais{margin-top:18px;border-top:1px solid var(--line);padding-top:6px}
 .fotoBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fotoBtns .btn{margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;padding:12px 8px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
-body.sheet-aberta{overflow:hidden}
+body.sheet-aberta main{display:none}
+body.sheet-aberta .hdate{display:none}
+.sheet.open{display:block;position:static;background:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+.sheet.open .sheet-card{height:auto;max-width:640px;margin:14px auto 0;width:calc(100% - 24px);border:1px solid var(--line);border-radius:20px;padding:14px 18px 18px;overflow:visible;animation:none}
+.sheet.open{padding-bottom:110px}
+.micHead{width:54px;height:54px;border-radius:50%;border:0;background:var(--accent);color:#1c1200}
+.micHead svg{width:27px;height:27px}
+.micHead.ouvindo{background:var(--bad);color:#fff}
+.vozModal{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;background:#0b0f14;padding:calc(24px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom))}
+.vozModal.open{display:flex}
+.vozModal h3{margin:0;text-align:center;font-size:1rem;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.vozModal .medidor{display:flex;align-items:center;justify-content:center;gap:6px;height:110px;margin:22px 0 10px}
+.vozModal .medidor i{width:10px;border-radius:6px;background:var(--accent);height:8px;transition:height .08s linear}
+.vozModal .vmSt{text-align:center;font-size:.85rem;color:var(--muted);min-height:1.2em}
+.vozModal .vmTxt{flex:1;overflow:auto;margin:18px 0;font-size:1.75rem;line-height:1.35;font-weight:700;text-align:center;color:var(--text,#e8edf3);word-break:break-word}
+.vozModal .vmTxt:empty::before{content:attr(data-ex);color:var(--muted);font-weight:500;font-size:1.05rem}
+.vozModal .btn{font-size:1.2rem;padding:20px;margin:0}
+.vozModal .vmCancel{margin-top:10px;background:none;border:0;color:var(--muted);font:inherit;font-size:1rem;padding:12px}
 </style>
 </head>
 <body>
@@ -417,6 +434,14 @@ body.sheet-aberta{overflow:hidden}
       </div>
     </form>
 </div></div>
+<div class="vozModal" id="vozModal" role="dialog" aria-modal="true" aria-label="Falando">
+  <h3>Fale agora</h3>
+  <div class="medidor" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="vmSt" id="vmSt">Ouvindo…</div>
+  <div class="vmTxt" id="vmTxt" aria-live="polite" data-ex="Ex.: quilômetro 84.900, 10 litros e 62 reais"></div>
+  <button type="button" class="btn" id="vmOk">Concluir</button>
+  <button type="button" class="vmCancel" id="vmCancel">Cancelar</button>
+</div>
 <div class="toast" id="toast"></div>
 <div id="relatorio"></div>
 
@@ -606,7 +631,7 @@ function abrir(tab){
   try { sessionStorage.setItem('motolog.tab', tab); } catch {}
 }
 const TIPO_ABA = { abast:'f', manut:'m', gastos:'g' }, ABA_TIPO = { f:'abast', m:'manut', g:'gastos' };
-$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; abrir(b.dataset.tab); if (TIPO_ABA[b.dataset.tab]) abrirFolha(TIPO_ABA[b.dataset.tab]); });
+$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (TIPO_ABA[b.dataset.tab]){ abrir(b.dataset.tab); abrirFolha(TIPO_ABA[b.dataset.tab]); } else { fecharFolha(); abrir(b.dataset.tab); } });
 
 // ---------- folhas de registro rápido ----------
 let folhaAberta = null;
@@ -624,17 +649,19 @@ function abrirFolha(t, editando){
 function fecharFolha(semVoltar){
   if (!folhaAberta) return;
   const t = folhaAberta; folhaAberta = null;
-  if (ouvindo){ try { ouvindo.abort(); } catch {} }
+  if (ouvindo) encerrarVoz(false);
   $('#sheet-' + t).classList.remove('open'); document.body.classList.remove('sheet-aberta');
   resetForm(t);
   if (!semVoltar && history.state && history.state.folha){ try { history.back(); } catch {} }
 }
-window.addEventListener('popstate', () => { if (folhaAberta) fecharFolha(true); });
+window.addEventListener('popstate', () => {
+  if (voz){ encerrarVoz(false); try { history.pushState({ folha: folhaAberta }, ''); } catch {} return; }
+  if (folhaAberta) fecharFolha(true);
+});
 document.addEventListener('click', e => {
   const f = e.target.closest('[data-fechar]'); if (f){ fecharFolha(); return; }
   const n = e.target.closest('[data-novo]'); if (n){ abrirFolha(n.dataset.novo); return; }
-  if (e.target.classList && e.target.classList.contains('sheet')) fecharFolha();
-  const mh = e.target.closest('.micHead'); if (mh){ $(`.voz[data-voz="${mh.dataset.voz}"] .micbtn`).click(); }
+  const mh = e.target.closest('.micHead'); if (mh) iniciarVoz(mh.dataset.voz);
 });
 // ---------- render ----------
 function render(){
@@ -1152,28 +1179,95 @@ function prepararVoz(){
     if (!Reconhecedor){ btn.classList.add('hidden'); txt.placeholder = 'Dite pelo microfone do teclado: ' + txt.placeholder; }
     txt.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); if (txt.value.trim()) aplicarFala(t, txt.value); txt.blur(); } });
     txt.addEventListener('change', () => { if (txt.value.trim()) aplicarFala(t, txt.value); });
-    btn.addEventListener('click', () => {
-      if (ouvindo){ ouvindo.stop(); return; }
-      // Escuta contínua: só para depois de ~3 s de silêncio, 25 s no total, ou com outro toque no microfone.
-      const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
-      ouvindo = rec; botoesVoz(t, true); txt.value = ''; txt.placeholder = 'Ouvindo… fale com calma';
-      const info = box.closest('.sheet-card').querySelector('.vozInfo'); info.textContent = 'Ouvindo… fale com calma. Toque no microfone de novo para terminar.';
-      let silencio = null; const limite = setTimeout(() => rec.stop(), 25000);
-      const armar = () => { clearTimeout(silencio); silencio = setTimeout(() => rec.stop(), 3000); };
-      armar();
-      rec.onresult = e => {
-        // Junta os trechos. Alguns Androids repetem o texto anterior em cada trecho novo: nesse caso fica só o mais completo.
-        let acc = '';
-        for (const res of e.results){ const p = res[0].transcript.trim(); if (!p) continue;
-          if (acc && p.toLowerCase().startsWith(acc.toLowerCase())) acc = p; else if (!acc.toLowerCase().endsWith(p.toLowerCase())) acc = (acc + ' ' + p).trim(); }
-        txt.value = acc; info.textContent = '“' + acc + '”'; armar();
-      };
-      rec.onerror = e => { if (e.error === 'aborted') return; toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : e.error === 'no-speech' ? 'Não ouvi nada. Tente de novo.' : 'Erro no reconhecimento de voz: ' + e.error); };
-      rec.onend = () => { clearTimeout(silencio); clearTimeout(limite); ouvindo = null; botoesVoz(t, false); txt.placeholder = txt.dataset.ph; if (folhaAberta !== t) return; if (txt.value.trim()) aplicarFala(t, txt.value); else info.textContent = ''; };
-      try { rec.start(); } catch (err) { ouvindo = null; botoesVoz(t, false); toast('Não consegui usar o microfone.'); }
-    });
-    txt.dataset.ph = txt.placeholder;
+    btn.addEventListener('click', () => iniciarVoz(t));
   });
+  $('#vmOk').addEventListener('click', () => encerrarVoz(true));
+  $('#vmCancel').addEventListener('click', () => encerrarVoz(false));
+}
+
+// Janela de fala: medidor de áudio ao vivo, texto grande e botão Concluir.
+let voz = null;
+const barras = () => document.querySelectorAll('#vozModal .medidor i');
+function iniciarVoz(t, semMedidor){
+  if (!Reconhecedor || voz) return;
+  const modal = $('#vozModal'), vtxt = $('#vmTxt'), st = $('#vmSt');
+  voz = { t, texto: '', aplicar: false, fim: false };
+  vtxt.textContent = ''; st.textContent = 'Ouvindo… fale com calma'; modal.classList.add('open'); botoesVoz(t, true);
+  const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+  voz.rec = rec; ouvindo = rec;
+  let silencio = null;
+  // Termina sozinho depois de 4 s calado (só depois de ouvir algo) ou 40 s no total.
+  const armar = () => { clearTimeout(silencio); if (voz && voz.texto) silencio = setTimeout(() => encerrarVoz(true), 4000); };
+  voz.limite = setTimeout(() => encerrarVoz(true), 40000);
+  rec.onresult = e => {
+    let acc = '';
+    for (const res of e.results){ const p = res[0].transcript.trim(); if (!p) continue;
+      if (acc && p.toLowerCase().startsWith(acc.toLowerCase())) acc = p; else if (!acc.toLowerCase().endsWith(p.toLowerCase())) acc = (acc + ' ' + p).trim(); }
+    if (!voz) return; voz.texto = acc; vtxt.textContent = acc; voz.pulso = 1; armar();
+  };
+  rec.onerror = e => {
+    if (e.error === 'aborted') return;
+    // Alguns Androids não deixam o medidor e o reconhecimento usarem o microfone juntos: tenta de novo sem o medidor.
+    if (e.error === 'audio-capture' && voz && voz.stream && !voz.texto){ voz.retentar = true; return; }
+    st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : e.error === 'no-speech' ? 'Não ouvi nada. Toque em Cancelar e tente de novo.' : 'Erro no reconhecimento de voz: ' + e.error;
+  };
+  rec.onend = () => {
+    if (!voz) return;
+    if (voz.retentar){ const tt = voz.t; pararMedidor(); clearTimeout(voz.limite); voz = null; ouvindo = null; iniciarVoz(tt, true); return; }
+    if (!voz.fim && !voz.aplicar && voz.texto){ encerrarVoz(true); return; } // o navegador parou sozinho: usa o que ouviu
+    if (!voz.fim){ st.textContent = voz.texto ? st.textContent : 'Não ouvi nada. Toque em Cancelar e tente de novo.'; ouvindo = null; botoesVoz(voz.t, false); }
+  };
+  voz.armar = armar;
+  try { rec.start(); } catch (err) { st.textContent = 'Não consegui usar o microfone.'; }
+  if (!semMedidor) ligarMedidor(); else animarSemMedidor();
+}
+async function ligarMedidor(){
+  const v = voz;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (voz !== v || !voz){ stream.getTracks().forEach(x => x.stop()); return; }
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const an = ctx.createAnalyser(); an.fftSize = 256; ctx.createMediaStreamSource(stream).connect(an);
+    v.stream = stream; v.ctx = ctx;
+    const buf = new Uint8Array(an.fftSize), bs = barras();
+    const passo = () => {
+      if (voz !== v) return;
+      an.getByteTimeDomainData(buf);
+      let soma = 0; for (const x of buf){ const d = (x - 128) / 128; soma += d * d; }
+      const nivel = Math.min(1, Math.sqrt(soma / buf.length) * 5);
+      bs.forEach((b, i) => { const c = 1 - Math.abs(i - (bs.length - 1) / 2) / (bs.length / 2); b.style.height = (8 + nivel * 100 * (0.35 + 0.65 * c) * (0.75 + Math.random() * 0.5)) + 'px'; });
+      v.raf = requestAnimationFrame(passo);
+    };
+    passo();
+  } catch { animarSemMedidor(); }
+}
+// Sem acesso ao medidor: as barras pulsam quando chega texto novo.
+function animarSemMedidor(){
+  const v = voz, bs = barras(); if (!v) return; v.pulso = 0.3;
+  const passo = () => {
+    if (voz !== v) return;
+    v.pulso = Math.max(0.12, (v.pulso || 0) * 0.9);
+    bs.forEach((b, i) => { b.style.height = (8 + v.pulso * 90 * (0.5 + Math.random() * 0.5)) + 'px'; });
+    v.raf = setTimeout(passo, 70);
+  };
+  passo();
+}
+function pararMedidor(){
+  if (!voz) return;
+  cancelAnimationFrame(voz.raf); clearTimeout(voz.raf);
+  if (voz.stream) voz.stream.getTracks().forEach(x => x.stop());
+  if (voz.ctx) voz.ctx.close().catch(() => {});
+  barras().forEach(b => b.style.height = '8px');
+}
+function encerrarVoz(aplicar){
+  if (!voz) return;
+  const v = voz; v.fim = true; v.aplicar = aplicar;
+  pararMedidor(); clearTimeout(v.limite);
+  try { aplicar ? v.rec.stop() : v.rec.abort(); } catch {}
+  voz = null; ouvindo = null; botoesVoz(v.t, false);
+  $('#vozModal').classList.remove('open');
+  const txt = document.querySelector(`.voz[data-voz="${v.t}"] .vozTxt`);
+  if (aplicar && v.texto && folhaAberta === v.t){ txt.value = v.texto; aplicarFala(v.t, v.texto); }
 }
 
 // ---------- formulários ----------
@@ -1358,7 +1452,7 @@ document.querySelectorAll('#periodo button').forEach(b => b.addEventListener('cl
   per = +b.dataset.v; document.querySelectorAll('#periodo button').forEach(x => x.classList.toggle('on', x === b)); renderAnalise(kmAtual());
 }));
 $('#relGerar').addEventListener('click', () => gerarRelatorio($('#relAno').value));
-$('#btnCfg').addEventListener('click', () => abrir('ajustes'));
+$('#btnCfg').addEventListener('click', () => { fecharFolha(); abrir('ajustes'); });
 
 prepararVoz();
 for (const f of Object.values(forms)) ['fotoCam','fotoArq'].forEach((n, i, ns) => f[n].addEventListener('change', () => {
@@ -1369,7 +1463,7 @@ for (const f of Object.values(forms)) ['fotoCam','fotoArq'].forEach((n, i, ns) =
 function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); }
 load(); init();
 if (sync.url) baixar(true);
-abrir('resumo'); abrirFolha('f'); // abre direto no registro de abastecimento
+abrir('abast'); abrirFolha('f'); // abre direto no registro de abastecimento
 // App instalável: service worker com cache para funcionar offline.
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
