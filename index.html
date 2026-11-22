@@ -276,6 +276,7 @@ input[type=file]{padding:9px;font-size:.85rem}
         <select name="comb"><option>Gasolina comum</option><option>Gasolina aditivada</option><option>Gasolina premium</option><option>Etanol</option></select>
         <label>Posto (opcional)</label><input type="text" name="posto" list="postosList" autocomplete="off"><datalist id="postosList"></datalist>
         <label class="check"><input type="checkbox" name="cheio" checked> Completei o tanque</label>
+        <input type="hidden" name="gps"><p class="note" id="fGps" style="margin:10px 0 0"></p>
         <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
         <button class="btn" type="submit">Salvar abastecimento</button>
         <button class="btn sec hidden" type="button" data-cancel="f">Cancelar edição</button>
@@ -868,8 +869,36 @@ function item(x, kml, acoes){
   }
   const rec = x.foto ? `<br><a class="recibo" href="${esc(x.foto)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>recibo</a>` : '';
   s += rec;
+  if (x.gps) s += `${rec ? ' ' : '<br>'}<a class="recibo" href="${mapaUrl(x.gps)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>ver no mapa</a>`;
   const btns = acoes ? `<button class="mini" data-edit="${x.tipo}:${x.id}" aria-label="Editar">${ICO.edit}</button><button class="mini" data-del="${x.tipo}:${x.id}" aria-label="Excluir">${ICO.del}</button>` : '';
   return `<li><span class="ico" style="--c:${cor}">${ICO[x.tipo]}</span><div class="grow"><div class="t">${t}</div><div class="s">${s}</div></div><div style="text-align:right"><div class="amt">${brl(x.valor)}</div>${btns ? `<div class="acts">${btns}</div>` : ''}</div></li>`;
+}
+
+// ---------- localização do abastecimento ----------
+const mapaUrl = g => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(g);
+function distM(a, b){
+  const [la1, lo1] = a.split(',').map(Number), [la2, lo2] = b.split(',').map(Number), R = 6371000, r = Math.PI / 180;
+  const x = (lo2 - lo1) * r * Math.cos((la1 + la2) / 2 * r), y = (la2 - la1) * r; return Math.sqrt(x*x + y*y) * R;
+}
+let gpsPedido = null;
+function pegarGps(){
+  const f = forms.f, el = $('#fGps');
+  if (!navigator.geolocation){ el.textContent = ''; return Promise.resolve(null); }
+  el.textContent = 'Obtendo localização…';
+  gpsPedido = new Promise(ok => navigator.geolocation.getCurrentPosition(pos => {
+    const g = pos.coords.latitude.toFixed(6) + ',' + pos.coords.longitude.toFixed(6);
+    if (!f.id.value){
+      f.gps.value = g;
+      // Sugere o posto pelo histórico: o abastecimento com nome de posto mais próximo, a até 200 m.
+      let perto = null;
+      if (!f.posto.value) for (const a of db.abastecimentos){ if (!a.gps || !a.posto) continue; const d = distM(g, a.gps); if (d <= 200 && (!perto || d < perto.d)) perto = { d, posto: a.posto }; }
+      if (perto) f.posto.value = perto.posto;
+      el.innerHTML = `Localização registrada (precisão de ${Math.round(pos.coords.accuracy)} m)${perto ? ` · posto sugerido pelo histórico: <b>${esc(perto.posto)}</b>` : ''}.`;
+    }
+    ok(g);
+  }, () => { el.textContent = 'Sem localização (GPS desligado ou negado). O abastecimento é salvo normalmente.'; ok(null); },
+  { enableHighAccuracy: true, timeout: 15000, maximumAge: 120000 }));
+  return gpsPedido;
 }
 
 // ---------- máscaras: digita só números, a vírgula entra sozinha ----------
@@ -1070,7 +1099,7 @@ function resetForm(t){
   f.data.value = hoje();
   if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + num(kmAtual()) : '';
   if (f.km && t === 'm') fmtMask(f.km, kmAtual() || null);
-  if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; }
+  if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; f.gps.value = ''; pegarGps(); }
   if (t === 'm') $('#mOutroBox').classList.add('hidden');
   f.foto.value = ''; f.querySelector('.fotoAtual').textContent = '';
   const card = f.closest('.card'); card.querySelector('.vozTxt').value = ''; card.querySelector('.vozInfo').textContent = '';
@@ -1100,6 +1129,7 @@ for (const [t, f] of Object.entries(forms)){
       if (c.erro){ toast(c.erro); f[c.campo].focus(); return; }
       if (c.avisos.length && !confirm('Confira antes de salvar:\n\n• ' + c.avisos.join('\n• ') + '\n\nSalvar mesmo assim?')) return;
     }
+    if (t === 'f' && !o.id && !o.gps && gpsPedido){ const g = await Promise.race([gpsPedido, new Promise(r => setTimeout(() => r(null), 4000))]); if (g) o.gps = g; }
     const arq = f.fotoArq.files[0], btn = f.querySelector('button[type=submit]');
     if (!o.id) o.id = uid();
     if (arq){
@@ -1144,7 +1174,7 @@ document.addEventListener('click', e => {
     if (!el.name || !(el.name in reg)) continue;
     if (el.type === 'checkbox') el.checked = !!reg[el.name]; else if (el.dataset.mask) fmtMask(el, reg[el.name]); else el.value = reg[el.name] ?? '';
   }
-  if (t === 'f') atualizaPpl();
+  if (t === 'f'){ atualizaPpl(); $('#fGps').innerHTML = reg.gps ? `Local salvo: <a class="recibo" href="${mapaUrl(reg.gps)}" target="_blank" rel="noopener">ver no mapa</a>` : ''; }
   f.querySelector('.fotoAtual').innerHTML = reg.foto ? `Recibo já anexado (<a class="recibo" href="${esc(reg.foto)}" target="_blank" rel="noopener">ver</a>). Escolha outra foto para trocar.` : '';
   if (t === 'm') $('#mOutroBox').classList.toggle('hidden', reg.servico !== 'Outro');
   $(titulos[t][0]).textContent = titulos[t][2];

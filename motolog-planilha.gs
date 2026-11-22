@@ -17,7 +17,7 @@ const PLANILHA_ID = '';
 function planilha_() { return PLANILHA_ID ? SpreadsheetApp.openById(PLANILHA_ID) : SpreadsheetApp.getActive(); }
 
 const ABAS = {
-  abastecimentos: { nome: 'Motolog_Abastecimentos', campos: ['id', 'data', 'km', 'litros', 'valor', 'comb', 'posto', 'cheio', 'foto'] },
+  abastecimentos: { nome: 'Motolog_Abastecimentos', campos: ['id', 'data', 'km', 'litros', 'valor', 'comb', 'posto', 'cheio', 'foto', 'gps'] },
   manutencoes:    { nome: 'Motolog_Manutencoes',    campos: ['id', 'data', 'km', 'servico', 'outro', 'valor', 'oficina', 'obs', 'foto'] },
   gastos:         { nome: 'Motolog_Gastos',         campos: ['id', 'data', 'valor', 'cat', 'desc', 'foto'] },
 };
@@ -90,8 +90,10 @@ function gravar_(db) {
     const linhas = [def.campos].concat((db[k] || []).map(function (o) {
       return def.campos.map(function (c) { return o[c] === undefined || o[c] === null ? '' : o[c]; });
     }));
-    // id e data como texto puro, para o Sheets não converter.
-    sh.getRange(1, 1, Math.max(linhas.length, 1), 2).setNumberFormat('@');
+    // id, data, foto e gps como texto puro, para o Sheets não converter.
+    def.campos.forEach(function (c, i) {
+      if (['id', 'data', 'foto', 'gps'].indexOf(c) >= 0) sh.getRange(1, i + 1, Math.max(linhas.length, 1), 1).setNumberFormat('@');
+    });
     sh.getRange(1, 1, linhas.length, def.campos.length).setValues(linhas);
     sh.setFrozenRows(1);
   });
