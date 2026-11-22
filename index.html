@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#10151c">
 <title>Motolog</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -192,8 +198,20 @@ input[type=file]{padding:9px;font-size:.85rem}
 .vozInfo:empty{display:none}
 .vozInfo{margin:0 0 4px}
 
-/* Botão salvar sempre visível, logo acima do menu */
-form .btn[type=submit]{position:sticky;bottom:calc(96px + env(safe-area-inset-bottom));z-index:4;box-shadow:0 0 0 6px var(--card),0 8px 24px rgba(0,0,0,.45)}
+.sheet{position:fixed;inset:0;z-index:30;display:none;align-items:flex-end;background:rgba(5,8,12,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.sheet.open{display:flex}
+.sheet-card{width:100%;max-width:640px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-bottom:0;border-radius:0;padding:calc(8px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));height:100vh;height:100dvh;max-height:none;overflow:auto;overscroll-behavior:contain;animation:sobe .22s ease}
+@keyframes sobe{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.grab{width:42px;height:4px;border-radius:4px;background:var(--line);margin:4px auto 10px}
+.sheet-head{display:flex;align-items:center;gap:8px}
+.sheet-head h3{flex:1;margin:0;font-size:1.15rem;font-weight:800}
+.sheet label{text-transform:uppercase;letter-spacing:.06em;font-size:.72rem}
+.sheet label.check{text-transform:none;letter-spacing:0;font-size:.95rem}
+input.big{font-size:1.25rem;font-weight:700;padding:14px 16px}
+.mais{margin-top:18px;border-top:1px solid var(--line);padding-top:6px}
+.fotoBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fotoBtns .btn{margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;padding:12px 8px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+body.sheet-aberta{overflow:hidden}
 </style>
 </head>
 <body>
@@ -260,90 +278,19 @@ form .btn[type=submit]{position:sticky;bottom:calc(96px + env(safe-area-inset-bo
 
   <!-- ABASTECIMENTO -->
   <section id="tab-abast" class="hidden">
-    <div class="card">
-      <h2 id="fTitle">Novo abastecimento</h2>
-      <div class="voz" data-voz="f"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="km 84900, 10 litros, 62 reais, posto Shell" enterkeyhint="done" autocomplete="off"></div>
-      <div class="note vozInfo"></div>
-      <form id="fForm">
-        <input type="hidden" name="id">
-        <div class="row">
-          <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Hora</label><input type="time" name="hora"></div>
-        </div>
-        <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
-        <div class="row">
-          <div><label>Litros</label><input type="text" name="litros" inputmode="numeric" data-mask="l" autocomplete="off" placeholder="0,000" required></div>
-          <div><label>Valor total (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
-        </div>
-        <p class="note" id="fPpl" style="margin:8px 0 0;min-height:1.2em"></p>
-        <label>Combustível</label>
-        <select name="comb"><option>Gasolina comum</option><option>Gasolina aditivada</option><option>Gasolina premium</option><option>Etanol</option></select>
-        <label>Posto (opcional)</label><input type="text" name="posto" list="postosList" autocomplete="off"><datalist id="postosList"></datalist>
-        <label class="check"><input type="checkbox" name="cheio" checked> Completei o tanque</label>
-        <input type="hidden" name="gps"><p class="note" id="fGps" style="margin:10px 0 0"></p>
-        <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
-        <button class="btn" type="submit">Salvar abastecimento</button>
-        <button class="btn sec hidden" type="button" data-cancel="f">Cancelar edição</button>
-      </form>
-      <p class="note">O consumo (km/l) é calculado entre dois abastecimentos de tanque cheio.</p>
-    </div>
+    <button class="btn" type="button" data-novo="f" style="margin:0 0 14px">+ Novo abastecimento</button>
     <div class="card"><h2>Histórico</h2><ul class="list" id="fList"></ul></div>
   </section>
 
   <!-- MANUTENÇÃO -->
   <section id="tab-manut" class="hidden">
-    <div class="card">
-      <h2 id="mTitle">Nova manutenção</h2>
-      <div class="voz" data-voz="m"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="troca de óleo, 84900 km, 55 reais, oficina do Zé" enterkeyhint="done" autocomplete="off"></div>
-      <div class="note vozInfo"></div>
-      <form id="mForm">
-        <input type="hidden" name="id">
-        <div class="row">
-          <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Hora</label><input type="time" name="hora"></div>
-        </div>
-        <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
-        <label>Serviço</label>
-        <select name="servico" id="mServ" required></select>
-        <div id="mOutroBox" class="hidden"><label>Descreva o serviço</label><input type="text" name="outro"></div>
-        <div class="row">
-          <div><label>Custo (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
-          <div><label>Oficina (opcional)</label><input type="text" name="oficina"></div>
-        </div>
-        <label>Observações</label><textarea name="obs" placeholder="Peças, marca do óleo, etc."></textarea>
-        <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
-        <button class="btn" type="submit">Salvar manutenção</button>
-        <button class="btn sec hidden" type="button" data-cancel="m">Cancelar edição</button>
-      </form>
-    </div>
+    <button class="btn" type="button" data-novo="m" style="margin:0 0 14px">+ Nova manutenção</button>
     <div class="card"><h2>Histórico</h2><ul class="list" id="mList"></ul></div>
   </section>
 
   <!-- GASTOS -->
   <section id="tab-gastos" class="hidden">
-    <div class="card">
-      <h2 id="gTitle">Novo gasto</h2>
-      <div class="voz" data-voz="g"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="IPVA 310 reais" enterkeyhint="done" autocomplete="off"></div>
-      <div class="note vozInfo"></div>
-      <form id="gForm">
-        <input type="hidden" name="id">
-        <div class="row">
-          <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Hora</label><input type="time" name="hora"></div>
-        </div>
-        <div><label>Valor (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
-        <label>Categoria</label>
-        <select name="cat">
-          <option>IPVA / Licenciamento</option><option>Seguro</option><option>Multa</option>
-          <option>Estacionamento</option><option>Pedágio</option><option>Lavagem</option>
-          <option>Acessórios / Equipamento</option><option>Documentação</option><option>Outros</option>
-        </select>
-        <label>Descrição (opcional)</label><input type="text" name="desc">
-        <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
-        <button class="btn" type="submit">Salvar gasto</button>
-        <button class="btn sec hidden" type="button" data-cancel="g">Cancelar edição</button>
-      </form>
-    </div>
+    <button class="btn" type="button" data-novo="g" style="margin:0 0 14px">+ Novo gasto</button>
     <div class="card"><h2>Histórico</h2><ul class="list" id="gList"></ul></div>
   </section>
 
@@ -400,6 +347,76 @@ form .btn[type=submit]{position:sticky;bottom:calc(96px + env(safe-area-inset-bo
   <button data-tab="manut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Manutenção</button>
   <button data-tab="gastos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11"/></svg>Gastos</button>
 </nav>
+
+<!-- Folhas de registro rápido -->
+<div class="sheet" id="sheet-f" role="dialog" aria-modal="true" aria-labelledby="fTitle"><div class="sheet-card">
+        <div class="sheet-head"><h3 id="fTitle">Novo abastecimento</h3><button type="button" class="icon-btn micHead" data-voz="f" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><button type="button" class="icon-btn" data-fechar="f" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="note vozInfo"></div>
+    <form id="fForm">
+      <input type="hidden" name="id">
+      <label>Valor total (R$)</label><input type="text" name="valor" class="big" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required>
+      <label>Litros</label><input type="text" name="litros" class="big" inputmode="numeric" data-mask="l" autocomplete="off" placeholder="0,000" required>
+      <label>Odômetro (km)</label><input type="text" name="km" class="big" inputmode="numeric" data-mask="km" autocomplete="off" required>
+      <p class="note" id="fPpl" style="margin:8px 0 0;min-height:1.2em"></p>
+      <button class="btn" type="submit">Salvar registro</button>
+      <button class="btn sec" type="button" data-fechar="f">Cancelar</button>
+      <div class="mais">
+        <label class="check"><input type="checkbox" name="cheio" checked> Completei o tanque</label>
+        <label>Foto do recibo</label><div class="fotoBtns"><label class="btn sec"><input type="file" name="fotoCam" accept="image/*" capture="environment" hidden>📷 Tirar foto</label><label class="btn sec"><input type="file" name="fotoArq" accept="image/*" hidden>🖼️ Escolher arquivo</label></div><input type="hidden" name="foto"><div class="note fotoAtual"></div>
+        <label>Posto</label><input type="text" name="posto" list="postosList" autocomplete="off"><datalist id="postosList"></datalist>
+        <label>Combustível</label>
+        <select name="comb"><option>Gasolina comum</option><option>Gasolina aditivada</option><option>Gasolina premium</option><option>Etanol</option></select>
+        <label>Data</label><input type="date" name="data" required><input type="hidden" name="hora">
+        
+        <label>Ditar (microfone do teclado)</label><div class="voz" data-voz="f"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="km 84900, 10 litros, 62 reais, posto Shell" enterkeyhint="done" autocomplete="off"></div>
+        <input type="hidden" name="gps"><p class="note" id="fGps" style="margin:10px 0 0"></p>
+      </div>
+    </form>
+</div></div>
+
+<div class="sheet" id="sheet-m" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="sheet-card">
+        <div class="sheet-head"><h3 id="mTitle">Nova manutenção</h3><button type="button" class="icon-btn micHead" data-voz="m" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><button type="button" class="icon-btn" data-fechar="m" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="note vozInfo"></div>
+    <form id="mForm">
+      <input type="hidden" name="id">
+      <label>Serviço</label><select name="servico" id="mServ" required></select>
+      <div id="mOutroBox" class="hidden"><label>Descreva o serviço</label><input type="text" name="outro"></div>
+      <label>Custo (R$)</label><input type="text" name="valor" class="big" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required>
+      <label>Odômetro (km)</label><input type="text" name="km" class="big" inputmode="numeric" data-mask="km" autocomplete="off" required>
+      <button class="btn" type="submit">Salvar registro</button>
+      <button class="btn sec" type="button" data-fechar="m">Cancelar</button>
+      <div class="mais">
+        <label>Oficina</label><input type="text" name="oficina">
+        <label>Observações</label><textarea name="obs" placeholder="Peças, marca do óleo, etc."></textarea>
+        <label>Data</label><input type="date" name="data" required><input type="hidden" name="hora">
+        <label>Foto do recibo</label><div class="fotoBtns"><label class="btn sec"><input type="file" name="fotoCam" accept="image/*" capture="environment" hidden>📷 Tirar foto</label><label class="btn sec"><input type="file" name="fotoArq" accept="image/*" hidden>🖼️ Escolher arquivo</label></div><input type="hidden" name="foto"><div class="note fotoAtual"></div>
+        <label>Ditar (microfone do teclado)</label><div class="voz" data-voz="m"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="troca de óleo, 84900 km, 55 reais, oficina do Zé" enterkeyhint="done" autocomplete="off"></div>
+      </div>
+    </form>
+</div></div>
+
+<div class="sheet" id="sheet-g" role="dialog" aria-modal="true" aria-labelledby="gTitle"><div class="sheet-card">
+        <div class="sheet-head"><h3 id="gTitle">Novo gasto</h3><button type="button" class="icon-btn micHead" data-voz="g" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><button type="button" class="icon-btn" data-fechar="g" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="note vozInfo"></div>
+    <form id="gForm">
+      <input type="hidden" name="id">
+      <label>Categoria</label>
+      <select name="cat">
+        <option>IPVA / Licenciamento</option><option>Seguro</option><option>Multa</option>
+        <option>Estacionamento</option><option>Pedágio</option><option>Lavagem</option>
+        <option>Acessórios / Equipamento</option><option>Documentação</option><option>Outros</option>
+      </select>
+      <label>Valor (R$)</label><input type="text" name="valor" class="big" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required>
+      <button class="btn" type="submit">Salvar registro</button>
+      <button class="btn sec" type="button" data-fechar="g">Cancelar</button>
+      <div class="mais">
+        <label>Descrição</label><input type="text" name="desc">
+        <label>Data</label><input type="date" name="data" required><input type="hidden" name="hora">
+        <label>Foto do recibo</label><div class="fotoBtns"><label class="btn sec"><input type="file" name="fotoCam" accept="image/*" capture="environment" hidden>📷 Tirar foto</label><label class="btn sec"><input type="file" name="fotoArq" accept="image/*" hidden>🖼️ Escolher arquivo</label></div><input type="hidden" name="foto"><div class="note fotoAtual"></div>
+        <label>Ditar (microfone do teclado)</label><div class="voz" data-voz="g"><button type="button" class="micbtn" aria-label="Falar"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg></button><input type="text" class="vozTxt" placeholder="IPVA 310 reais" enterkeyhint="done" autocomplete="off"></div>
+      </div>
+    </form>
+</div></div>
 <div class="toast" id="toast"></div>
 <div id="relatorio"></div>
 
@@ -585,12 +602,40 @@ function consumos(){
 function abrir(tab){
   document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-'+tab));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  if (tab === 'manut' && !forms.m.id.value && !forms.m.km.value) fmtMask(forms.m.km, kmAtual() || null);
   window.scrollTo(0,0);
   try { sessionStorage.setItem('motolog.tab', tab); } catch {}
 }
-$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) abrir(b.dataset.tab); });
+const TIPO_ABA = { abast:'f', manut:'m', gastos:'g' }, ABA_TIPO = { f:'abast', m:'manut', g:'gastos' };
+$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; abrir(b.dataset.tab); if (TIPO_ABA[b.dataset.tab]) abrirFolha(TIPO_ABA[b.dataset.tab]); });
 
+// ---------- folhas de registro rápido ----------
+let folhaAberta = null;
+function abrirFolha(t, editando){
+  if (folhaAberta && folhaAberta !== t) fecharFolha(true);
+  if (!editando && forms[t].id.value) resetForm(t);
+  const el = $('#sheet-' + t); el.classList.add('open'); document.body.classList.add('sheet-aberta');
+  if (!folhaAberta){ try { history.pushState({ folha: t }, ''); } catch {} }
+  folhaAberta = t;
+  if (t === 'f' && !editando) pegarGps();
+  if (t === 'm' && !editando) fmtMask(forms.m.km, kmAtual() || null);
+  const primeiro = forms[t].querySelector(t === 'f' ? '[name=valor]' : t === 'm' ? '[name=servico]' : '[name=cat]');
+  setTimeout(() => { try { primeiro.focus({ preventScroll: true }); } catch {} }, 60);
+}
+function fecharFolha(semVoltar){
+  if (!folhaAberta) return;
+  const t = folhaAberta; folhaAberta = null;
+  if (ouvindo){ try { ouvindo.abort(); } catch {} }
+  $('#sheet-' + t).classList.remove('open'); document.body.classList.remove('sheet-aberta');
+  resetForm(t);
+  if (!semVoltar && history.state && history.state.folha){ try { history.back(); } catch {} }
+}
+window.addEventListener('popstate', () => { if (folhaAberta) fecharFolha(true); });
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-fechar]'); if (f){ fecharFolha(); return; }
+  const n = e.target.closest('[data-novo]'); if (n){ abrirFolha(n.dataset.novo); return; }
+  if (e.target.classList && e.target.classList.contains('sheet')) fecharFolha();
+  const mh = e.target.closest('.micHead'); if (mh){ $(`.voz[data-voz="${mh.dataset.voz}"] .micbtn`).click(); }
+});
 // ---------- render ----------
 function render(){
   $('#hdrSub').textContent = db.config.nome || 'Minha moto';
@@ -978,7 +1023,7 @@ const PALAVRAS_NUM = { zero:0, um:1, uma:1, dois:2, duas:2, tres:3, quatro:4, ci
   cinquenta:50, sessenta:60, setenta:70, oitenta:80, noventa:90, cem:100, cento:100, duzentos:200, duzentas:200, trezentos:300, trezentas:300,
   quatrocentos:400, quinhentos:500, seiscentos:600, setecentos:700, oitocentos:800, novecentos:900 };
 const UNID = {
-  km: ['km','kms','quilometro','quilometros','quilometragem','odometro','hodometro','painel','marcando'],
+  km: ['km','kms','quilometro','quilometros','kilometro','kilometros','quilometro','kilometragem','quilometragem','odometro','hodometro','painel','marcando'],
   litros: ['litro','litros','l','lts','lt'],
   valor: ['real','reais','r$','valor','total','paguei','deu','conto','contos','pila','pilas'],
 };
@@ -1092,14 +1137,16 @@ function aplicarFala(t, texto){
     if (r.cat){ f.cat.value = r.cat; feitos.push(r.cat); }
     else if (!f.desc.value){ f.desc.value = texto; feitos.push('descrição'); }
   }
-  const info = f.closest('.card').querySelector('.vozInfo');
+  const info = f.closest('.sheet-card').querySelector('.vozInfo');
   info.innerHTML = feitos.length ? `Preenchido: <b>${feitos.map(esc).join(' · ')}</b>. Confira e toque em Salvar.`
     : 'Não entendi os números. Tente algo como "km 84900, 10 litros, 62 reais".';
 }
 
 const Reconhecedor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let ouvindo = null;
+const botoesVoz = (t, on) => document.querySelectorAll(`.voz[data-voz="${t}"] .micbtn, .micHead[data-voz="${t}"]`).forEach(b => b.classList.toggle('ouvindo', on));
 function prepararVoz(){
+  if (!Reconhecedor) document.querySelectorAll('.micHead').forEach(b => b.classList.add('hidden'));
   document.querySelectorAll('.voz').forEach(box => {
     const t = box.dataset.voz, btn = box.querySelector('.micbtn'), txt = box.querySelector('.vozTxt');
     if (!Reconhecedor){ btn.classList.add('hidden'); txt.placeholder = 'Dite pelo microfone do teclado: ' + txt.placeholder; }
@@ -1107,13 +1154,23 @@ function prepararVoz(){
     txt.addEventListener('change', () => { if (txt.value.trim()) aplicarFala(t, txt.value); });
     btn.addEventListener('click', () => {
       if (ouvindo){ ouvindo.stop(); return; }
-      const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.maxAlternatives = 1;
-      ouvindo = rec; btn.classList.add('ouvindo'); txt.value = ''; txt.placeholder = 'Ouvindo… fale agora';
-      let final = '';
-      rec.onresult = e => { let parcial = ''; for (const res of e.results){ if (res.isFinal) final = res[0].transcript; else parcial += res[0].transcript; } txt.value = final || parcial; };
-      rec.onerror = e => { toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : e.error === 'no-speech' ? 'Não ouvi nada. Tente de novo.' : 'Erro no reconhecimento de voz: ' + e.error); };
-      rec.onend = () => { ouvindo = null; btn.classList.remove('ouvindo'); txt.placeholder = txt.dataset.ph; if (txt.value.trim()) aplicarFala(t, txt.value); };
-      try { rec.start(); } catch (err) { ouvindo = null; btn.classList.remove('ouvindo'); toast('Não consegui usar o microfone.'); }
+      // Escuta contínua: só para depois de ~3 s de silêncio, 25 s no total, ou com outro toque no microfone.
+      const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+      ouvindo = rec; botoesVoz(t, true); txt.value = ''; txt.placeholder = 'Ouvindo… fale com calma';
+      const info = box.closest('.sheet-card').querySelector('.vozInfo'); info.textContent = 'Ouvindo… fale com calma. Toque no microfone de novo para terminar.';
+      let silencio = null; const limite = setTimeout(() => rec.stop(), 25000);
+      const armar = () => { clearTimeout(silencio); silencio = setTimeout(() => rec.stop(), 3000); };
+      armar();
+      rec.onresult = e => {
+        // Junta os trechos. Alguns Androids repetem o texto anterior em cada trecho novo: nesse caso fica só o mais completo.
+        let acc = '';
+        for (const res of e.results){ const p = res[0].transcript.trim(); if (!p) continue;
+          if (acc && p.toLowerCase().startsWith(acc.toLowerCase())) acc = p; else if (!acc.toLowerCase().endsWith(p.toLowerCase())) acc = (acc + ' ' + p).trim(); }
+        txt.value = acc; info.textContent = '“' + acc + '”'; armar();
+      };
+      rec.onerror = e => { if (e.error === 'aborted') return; toast(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : e.error === 'no-speech' ? 'Não ouvi nada. Tente de novo.' : 'Erro no reconhecimento de voz: ' + e.error); };
+      rec.onend = () => { clearTimeout(silencio); clearTimeout(limite); ouvindo = null; botoesVoz(t, false); txt.placeholder = txt.dataset.ph; if (folhaAberta !== t) return; if (txt.value.trim()) aplicarFala(t, txt.value); else info.textContent = ''; };
+      try { rec.start(); } catch (err) { ouvindo = null; botoesVoz(t, false); toast('Não consegui usar o microfone.'); }
     });
     txt.dataset.ph = txt.placeholder;
   });
@@ -1132,15 +1189,14 @@ function preencherServicos(){
 function resetForm(t){
   const f = forms[t]; f.reset(); f.id.value = '';
   f.data.value = hoje();
-  f.hora.value = new Date().toTimeString().slice(0,5);
+  f.hora.value = '';
   if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + num(kmAtual()) : '';
   if (f.km && t === 'm') fmtMask(f.km, kmAtual() || null);
-  if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; f.gps.value = ''; pegarGps(); }
+  if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; f.gps.value = ''; $('#fGps').textContent = ''; }
   if (t === 'm') $('#mOutroBox').classList.add('hidden');
   f.foto.value = ''; f.querySelector('.fotoAtual').textContent = '';
-  const card = f.closest('.card'); card.querySelector('.vozTxt').value = ''; card.querySelector('.vozInfo').textContent = '';
+  const card = f.closest('.sheet-card'); card.querySelector('.vozTxt').value = ''; card.querySelector('.vozInfo').textContent = '';
   $(titulos[t][0]).textContent = titulos[t][1];
-  f.querySelector('[data-cancel]').classList.add('hidden');
 }
 
 function lerForm(f){
@@ -1166,8 +1222,10 @@ for (const [t, f] of Object.entries(forms)){
       if (c.avisos.length && !confirm('Confira antes de salvar:\n\n• ' + c.avisos.join('\n• ') + '\n\nSalvar mesmo assim?')) return;
     }
     if (t === 'f' && !o.id && !o.gps && gpsPedido){ const g = await Promise.race([gpsPedido, new Promise(r => setTimeout(() => r(null), 4000))]); if (g) o.gps = g; }
-    const arq = f.fotoArq.files[0], btn = f.querySelector('button[type=submit]');
+    const arq = (f.fotoCam.files[0] || f.fotoArq.files[0]), btn = f.querySelector('button[type=submit]');
     if (!o.id) o.id = uid();
+    if (!o.hora) o.hora = new Date().toTimeString().slice(0,5);
+    if (!o.data) o.data = hoje();
     if (arq){
       if (!sync.url) toast('Recibo não guardado: conecte a planilha em Ajustes para salvar fotos no Drive.');
       else {
@@ -1180,11 +1238,10 @@ for (const [t, f] of Object.entries(forms)){
     const arr = db[colecao[t]];
     const i = arr.findIndex(x => x.id === o.id);
     if (i >= 0) arr[i] = o; else arr.push(o);
-    save(); resetForm(t); render();
+    save(); fecharFolha(); render();
     const al = t === 'f' ? alertaConsumo(consumos().map) : null;
     if (al && al.id === o.id) toast(`Salvo. Atenção: consumo ${al.queda}% abaixo do normal.`); else toast('Salvo ✓');
   });
-  f.querySelector('[data-cancel]').addEventListener('click', () => resetForm(t));
 }
 
 // preço por litro ao vivo
@@ -1205,6 +1262,8 @@ document.addEventListener('click', e => {
     return;
   }
   const f = forms[t];
+  if (folhaAberta) fecharFolha(true);
+  resetForm(t);
   f.hora.value = reg.hora || '';
   if (t === 'm' && !db.config.intervalos.hasOwnProperty(reg.servico)) { db.config.intervalos[reg.servico] = 0; preencherServicos(); }
   for (const el of f.elements){
@@ -1215,8 +1274,7 @@ document.addEventListener('click', e => {
   f.querySelector('.fotoAtual').innerHTML = reg.foto ? `Recibo já anexado (<a class="recibo" href="${esc(reg.foto)}" target="_blank" rel="noopener">ver</a>). Escolha outra foto para trocar.` : '';
   if (t === 'm') $('#mOutroBox').classList.toggle('hidden', reg.servico !== 'Outro');
   $(titulos[t][0]).textContent = titulos[t][2];
-  f.querySelector('[data-cancel]').classList.remove('hidden');
-  abrir({f:'abast', m:'manut', g:'gastos'}[t]);
+  abrirFolha(t, true);
 });
 
 // ---------- ajustes ----------
@@ -1303,11 +1361,17 @@ $('#relGerar').addEventListener('click', () => gerarRelatorio($('#relAno').value
 $('#btnCfg').addEventListener('click', () => abrir('ajustes'));
 
 prepararVoz();
+for (const f of Object.values(forms)) ['fotoCam','fotoArq'].forEach((n, i, ns) => f[n].addEventListener('change', () => {
+  const a = f[n].files[0]; if (!a) return; f[ns[1-i]].value = '';
+  f.querySelector('.fotoAtual').textContent = 'Foto pronta: vai junto ao salvar ✓';
+}));
 
 function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); }
 load(); init();
 if (sync.url) baixar(true);
-abrir('abast'); // abre direto no abastecimento
+abrir('resumo'); abrirFolha('f'); // abre direto no registro de abastecimento
+// App instalável: service worker com cache para funcionar offline.
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
 </body>
