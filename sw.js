@@ -1,6 +1,6 @@
 // Motolog: service worker simples. Página sempre da rede quando há internet (para pegar versões novas),
 // e do cache quando está offline. Não mexe em nada fora do próprio site (Apps Script, Google, mapas).
-const CACHE = 'motolog-v4';
+const CACHE = 'motolog-v5';
 const ARQUIVOS = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -1249,7 +1249,7 @@ function iniciarVoz(t){
   if (!Reconhecedor || voz) return;
   voz = { t, i: 0, vals: {}, texto: '' };
   $('#vozModal').classList.add('open'); botoesVoz(t, true);
-  ligarMedidor();
+  animarSemMedidor(); // sem getUserMedia: no Android ele tira o microfone do reconhecimento de voz
   mostrarEtapa();
 }
 function mostrarEtapa(){
@@ -1272,8 +1272,13 @@ function ouvirEtapa(){
   try { v.rec && v.rec.abort(); } catch {}
   const e = ETAPAS[v.t][v.i];
   const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 3;
-  v.rec = rec; ouvindo = rec; v.ouvindo = true; botoesVoz(v.t, true);
+  v.rec = rec; ouvindo = rec; v.ouvindo = true; v.erro = null; botoesVoz(v.t, true);
   $('#vmOuvi').textContent = 'Ouvindo…';
+  const sinal = (n, txt) => { if (voz === v && v.rec === rec){ v.pulso = Math.max(v.pulso || 0, n); if (txt) $('#vmOuvi').textContent = txt; } };
+  rec.onaudiostart = () => sinal(0.3, 'Microfone ligado. Pode falar…');
+  rec.onsoundstart = () => sinal(0.6, 'Ouvindo som…');
+  rec.onspeechstart = () => { v.falando = true; sinal(0.9, 'Ouvindo sua voz…'); };
+  rec.onspeechend = rec.onsoundend = () => { v.falando = false; };
   rec.onresult = ev => {
     if (voz !== v || v.rec !== rec) return;
     let txt = ''; for (const r of ev.results) txt += r[0].transcript + ' ';
@@ -1291,14 +1296,17 @@ function ouvirEtapa(){
   };
   rec.onerror = ev => {
     if (voz !== v || v.rec !== rec || ev.error === 'aborted') return;
-    if (ev.error === 'audio-capture' && v.stream){ pararMedidor(true); v.retentar = true; return; }
-    $('#vmOuvi').textContent = ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : ev.error === 'no-speech' ? 'Não ouvi nada.' : 'Erro no reconhecimento de voz: ' + ev.error;
+    v.erro = ev.error;
+    const MSG = { 'no-speech': 'Não ouvi nada. Fale perto do celular.', 'audio-capture': 'O microfone está ocupado ou indisponível (fone Bluetooth? outro app?).',
+      'not-allowed': 'Permita o uso do microfone para este app.', 'service-not-allowed': 'O reconhecimento de voz está bloqueado no celular.',
+      network: 'Sem internet: o reconhecimento de voz do Chrome precisa de conexão.', 'language-not-supported': 'Português não disponível no reconhecimento de voz.' };
+    $('#vmOuvi').textContent = (MSG[ev.error] || 'Erro no reconhecimento de voz') + ' [' + ev.error + ']';
   };
   rec.onend = () => {
     if (voz !== v || v.rec !== rec) return;
-    v.ouvindo = false; botoesVoz(v.t, false);
+    v.ouvindo = false; v.falando = false; botoesVoz(v.t, false);
     if (v.retentar){ v.retentar = false; animarSemMedidor(); ouvirEtapa(); return; }
-    if (v.valor === null){ $('#vmSt').textContent = v.texto ? 'Não achei um número no que você disse. Toque em Repetir.' : 'Toque em Repetir e diga o número.'; if (!v.texto) $('#vmOuvi').textContent = 'Não ouvi nada.'; }
+    if (v.valor === null){ $('#vmSt').textContent = v.texto ? 'Não achei um número no que você disse. Toque em Repetir.' : 'Toque em Repetir e diga o número.'; if (!v.texto && !v.erro) $('#vmOuvi').textContent = 'Não ouvi nada. [sem resultado]'; }
   };
   try { rec.start(); } catch (err) { $('#vmOuvi').textContent = 'Não consegui usar o microfone.'; }
 }
@@ -1323,32 +1331,12 @@ function repetirEtapa(){
   pintar('', '', 'Diga só o número. Ex.: ' + ETAPAS[v.t][v.i].ex);
   ouvirEtapa();
 }
-async function ligarMedidor(){
-  const v = voz;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    if (voz !== v || !voz){ stream.getTracks().forEach(x => x.stop()); return; }
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const an = ctx.createAnalyser(); an.fftSize = 256; ctx.createMediaStreamSource(stream).connect(an);
-    v.stream = stream; v.ctx = ctx;
-    const buf = new Uint8Array(an.fftSize), bs = barras();
-    const passo = () => {
-      if (voz !== v) return;
-      an.getByteTimeDomainData(buf);
-      let soma = 0; for (const x of buf){ const d = (x - 128) / 128; soma += d * d; }
-      const nivel = Math.min(1, Math.sqrt(soma / buf.length) * 5);
-      bs.forEach((b, i) => { const c = 1 - Math.abs(i - (bs.length - 1) / 2) / (bs.length / 2); b.style.height = (8 + nivel * 100 * (0.35 + 0.65 * c) * (0.75 + Math.random() * 0.5)) + 'px'; });
-      v.raf = requestAnimationFrame(passo);
-    };
-    passo();
-  } catch { animarSemMedidor(); }
-}
-// Sem acesso ao medidor: as barras pulsam quando chega texto novo.
+// As barras reagem aos eventos do reconhecimento (som, voz, texto novo).
 function animarSemMedidor(){
   const v = voz, bs = barras(); if (!v) return; v.pulso = 0.3;
   const passo = () => {
     if (voz !== v) return;
-    v.pulso = Math.max(0.12, (v.pulso || 0) * 0.9);
+    v.pulso = v.falando && v.ouvindo ? 0.45 + Math.random() * 0.55 : Math.max(0.12, (v.pulso || 0) * 0.9);
     bs.forEach((b, i) => { b.style.height = (8 + v.pulso * 90 * (0.5 + Math.random() * 0.5)) + 'px'; });
     v.raf = setTimeout(passo, 70);
   };
