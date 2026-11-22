@@ -1,66 +1,169 @@
 /**
- * Motolog: API da planilha Google (Google Apps Script)
+ * Motolog: API da planilha Google (Google Apps Script), com login por pessoa.
  *
- * Crie uma planilha nova em branco, abra Extensões > Apps Script nela e cole este código.
- * (Não cole na planilha do Central da Moto: ela já tem outro script.)
- * Troque o TOKEN abaixo por uma senha só sua (a mesma que você vai digitar no app).
+ * Cole este código no Apps Script da planilha do Motolog (Extensões > Apps Script),
+ * salve e reimplante como NOVA VERSÃO (Implantar > Gerenciar implantações > lápis >
+ * Versão: Nova versão > Implantar). A URL /exec continua a mesma.
  *
- * O script só lê e grava as abas que começam com "Motolog_". Ele nunca lê nem
- * devolve as outras abas (Usuarios, Página1, Manutencao, etc.).
- * As fotos de recibo vão para a pasta "Motolog Recibos" no seu Google Drive (só você vê).
+ * Como funciona:
+ * - Cada pessoa cria a conta no app (nome, e-mail e senha). A senha é guardada
+ *   embaralhada (hash com sal), nunca em texto.
+ * - Todo cadastro novo fica "pendente". O dono da planilha recebe um e-mail e aprova
+ *   trocando a coluna "status" para "ativo" na aba Motolog_Usuarios.
+ *   (Para bloquear alguém, troque para "bloqueado".)
+ * - Os registros ficam nas mesmas abas, com a coluna "usuario" (o e-mail da pessoa).
+ *   Cada um só vê e altera os próprios dados.
+ * - Os registros antigos, sem usuário, pertencem ao dono da planilha.
+ * - O script só lê e grava as abas que começam com "Motolog_".
+ * - As fotos de recibo vão para a pasta "Motolog Recibos" no Drive do dono.
  *
- * Resumo semanal por e-mail: depois de colar, escolha a função "instalarResumoSemanal"
- * no topo do editor e clique em Executar (uma vez só). Ele pede permissão para enviar
- * e-mail e passa a mandar o resumo toda segunda às 8h, se estiver ligado nos Ajustes do app.
+ * Resumo semanal por e-mail: rode "instalarResumoSemanal" uma vez no editor
+ * (escolha a função no topo e clique em Executar). Cada pessoa liga ou desliga
+ * o próprio resumo nos Ajustes do app.
  */
-const TOKEN = 'TROQUE-ESTA-SENHA';
 
 // Deixe vazio para usar a planilha onde o script foi colado.
-// (Só preencha com um ID se o script estiver num projeto separado.)
 const PLANILHA_ID = '';
 function planilha_() { return PLANILHA_ID ? SpreadsheetApp.openById(PLANILHA_ID) : SpreadsheetApp.getActive(); }
 
 const ABAS = {
-  abastecimentos: { nome: 'Motolog_Abastecimentos', campos: ['id', 'data', 'hora', 'km', 'litros', 'valor', 'comb', 'posto', 'cheio', 'foto', 'gps'] },
-  manutencoes:    { nome: 'Motolog_Manutencoes',    campos: ['id', 'data', 'hora', 'km', 'servico', 'outro', 'valor', 'oficina', 'obs', 'foto'] },
-  gastos:         { nome: 'Motolog_Gastos',         campos: ['id', 'data', 'hora', 'valor', 'cat', 'desc', 'foto'] },
+  abastecimentos: { nome: 'Motolog_Abastecimentos', campos: ['usuario', 'id', 'data', 'hora', 'km', 'litros', 'valor', 'comb', 'posto', 'cheio', 'foto', 'gps'] },
+  manutencoes:    { nome: 'Motolog_Manutencoes',    campos: ['usuario', 'id', 'data', 'hora', 'km', 'servico', 'outro', 'valor', 'oficina', 'obs', 'foto'] },
+  gastos:         { nome: 'Motolog_Gastos',         campos: ['usuario', 'id', 'data', 'hora', 'valor', 'cat', 'desc', 'foto'] },
 };
 const ABA_CONFIG = 'Motolog_Config';
+const ABA_USUARIOS = 'Motolog_Usuarios';
+const CAMPOS_USUARIOS = ['email', 'nome', 'status', 'criado', 'ultimo_acesso', 'sal', 'hash'];
 const PASTA_RECIBOS = 'Motolog Recibos';
+const SESSAO_DIAS = 365;
 
+function dono_() { return String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); }
+function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
+
+// ---------- entrada ----------
 function doGet(e) {
-  if (!tokenOk_(e.parameter.token)) return saida_({ ok: false, erro: 'token' });
-  return saida_({ ok: true, rev: rev_(), db: ler_() });
+  const u = sessao_(e.parameter.sessao);
+  if (!u) return saida_({ ok: false, erro: 'sessao' });
+  return saida_({ ok: true, rev: rev_(u.email), db: ler_(u.email), usuario: { email: u.email, nome: u.nome } });
 }
 
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return saida_({ ok: false, erro: 'json' }); }
-  if (!tokenOk_(body.token)) return saida_({ ok: false, erro: 'token' });
-  if (body.acao === 'foto') return saida_(salvarFoto_(body));
+  if (body.acao === 'cadastro') return saida_(cadastro_(body));
+  if (body.acao === 'login') return saida_(login_(body));
+
+  const u = sessao_(body.sessao);
+  if (!u) return saida_({ ok: false, erro: 'sessao' });
+  if (body.acao === 'sair') { PropertiesService.getScriptProperties().deleteProperty('s:' + body.sessao); return saida_({ ok: true }); }
+  if (body.acao === 'foto') return saida_(salvarFoto_(body, u.email));
   if (!body.db || !Array.isArray(body.db.abastecimentos) || !Array.isArray(body.db.manutencoes)) {
     return saida_({ ok: false, erro: 'formato' });
   }
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const atual = rev_();
+    const atual = rev_(u.email);
     // Evita que um aparelho desatualizado apague dados gravados por outro.
     if (body.baseRev !== 'force' && Number(body.baseRev) !== atual) {
-      return saida_({ ok: false, erro: 'conflito', rev: atual, db: ler_() });
+      return saida_({ ok: false, erro: 'conflito', rev: atual, db: ler_(u.email) });
     }
-    gravar_(body.db);
+    gravar_(u.email, body.db);
     const nova = atual + 1;
-    setConfig_('rev', nova);
-    setConfig_('atualizado', new Date().toISOString());
+    setConfig_(chaveRev_(u.email), nova);
     return saida_({ ok: true, rev: nova });
   } finally {
     lock.releaseLock();
   }
 }
 
-// ---------- leitura e gravação ----------
-function ler_() {
+// ---------- contas ----------
+function abaUsuarios_() {
+  const ss = planilha_();
+  let sh = ss.getSheetByName(ABA_USUARIOS);
+  if (!sh) {
+    sh = ss.insertSheet(ABA_USUARIOS);
+    sh.getRange('A:G').setNumberFormat('@');
+    sh.getRange(1, 1, 1, CAMPOS_USUARIOS.length).setValues([CAMPOS_USUARIOS]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function usuarios_() {
+  const sh = abaUsuarios_(), v = sh.getDataRange().getValues(), cab = v.shift();
+  return v.map(function (l, i) {
+    const o = { linha: i + 2 };
+    cab.forEach(function (c, j) { o[c] = l[j]; });
+    o.email = normEmail_(o.email); o.status = String(o.status || '').trim().toLowerCase();
+    return o;
+  }).filter(function (o) { return o.email; });
+}
+function hash_(sal, senha) {
+  let h = sal + '|' + senha;
+  for (let i = 0; i < 300; i++) {
+    h = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h + sal, Utilities.Charset.UTF_8));
+  }
+  return h;
+}
+function cadastro_(b) {
+  const email = normEmail_(b.email), nome = String(b.nome || '').trim().slice(0, 60), senha = String(b.senha || '');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, erro: 'email' };
+  if (senha.length < 6) return { ok: false, erro: 'senha_curta' };
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    if (usuarios_().some(function (u) { return u.email === email; })) return { ok: false, erro: 'existe' };
+    const sal = Utilities.getUuid();
+    abaUsuarios_().appendRow([email, nome, 'pendente', new Date().toISOString(), '', sal, hash_(sal, senha)]);
+  } finally { lock.releaseLock(); }
+  try {
+    MailApp.sendEmail({
+      to: dono_(),
+      subject: 'Motolog: novo cadastro de ' + (nome || email),
+      htmlBody: '<p><b>' + (nome || '(sem nome)') + '</b> (' + email + ') pediu acesso ao Motolog.</p>' +
+        '<p>Para aprovar, abra a planilha, aba <b>' + ABA_USUARIOS + '</b>, e troque o status de "pendente" para <b>ativo</b>.</p>' +
+        '<p><a href="' + planilha_().getUrl() + '">Abrir a planilha</a></p>'
+    });
+  } catch (err) { /* sem permissão de e-mail ainda: o cadastro fica pendente mesmo assim */ }
+  return { ok: true, status: 'pendente' };
+}
+function login_(b) {
+  const email = normEmail_(b.email), senha = String(b.senha || '');
+  const cache = CacheService.getScriptCache(), kf = 'falhas:' + email;
+  const falhas = Number(cache.get(kf)) || 0;
+  if (falhas >= 6) return { ok: false, erro: 'bloqueio' };
+  const u = usuarios_().filter(function (x) { return x.email === email; })[0];
+  if (!u || hash_(String(u.sal), senha) !== String(u.hash)) {
+    cache.put(kf, String(falhas + 1), 600);
+    return { ok: false, erro: 'credenciais' };
+  }
+  cache.remove(kf);
+  if (u.status === 'pendente') return { ok: false, erro: 'pendente' };
+  if (u.status !== 'ativo') return { ok: false, erro: 'bloqueado' };
+  const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+  PropertiesService.getScriptProperties().setProperty('s:' + token, JSON.stringify({ email: email, criado: Date.now() }));
+  abaUsuarios_().getRange(u.linha, CAMPOS_USUARIOS.indexOf('ultimo_acesso') + 1).setValue(new Date().toISOString());
+  return { ok: true, sessao: token, usuario: { email: email, nome: u.nome || '' } };
+}
+// Confere a sessão e se a conta continua ativa (bloquear na planilha derruba o acesso).
+function sessao_(token) {
+  if (!token || String(token).length < 40) return null;
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('s:' + token);
+  if (!raw) return null;
+  const s = JSON.parse(raw);
+  if (Date.now() - s.criado > SESSAO_DIAS * 864e5) { props.deleteProperty('s:' + token); return null; }
+  const u = usuarios_().filter(function (x) { return x.email === s.email; })[0];
+  if (!u || u.status !== 'ativo') return null;
+  return { email: u.email, nome: u.nome || '' };
+}
+
+// ---------- leitura e gravação (só as linhas da pessoa) ----------
+// Linhas sem usuário (de antes do login) pertencem ao dono da planilha.
+function dele_(linhaUsuario, email) {
+  const u = normEmail_(linhaUsuario);
+  return u ? u === email : email === dono_();
+}
+function ler_(email) {
   const ss = planilha_();
   const tz = ss.getSpreadsheetTimeZone();
   const db = { versao: 1, abastecimentos: [], manutencoes: [], gastos: [] };
@@ -69,9 +172,13 @@ function ler_() {
     if (!sh || sh.getLastRow() < 2) return;
     const valores = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
     const cab = valores.shift();
-    db[k] = valores.filter(function (l) { return l[0] !== ''; }).map(function (l) {
+    const iu = cab.indexOf('usuario'), iid = cab.indexOf('id');
+    db[k] = valores.filter(function (l) {
+      return l[iid] !== '' && dele_(iu >= 0 ? l[iu] : '', email);
+    }).map(function (l) {
       const o = {};
       cab.forEach(function (c, i) {
+        if (c === 'usuario' || c === '') return;
         let v = l[i];
         if (v instanceof Date) v = Utilities.formatDate(v, tz, c === 'hora' ? 'HH:mm' : 'yyyy-MM-dd');
         o[c] = v;
@@ -80,42 +187,55 @@ function ler_() {
       return o;
     });
   });
-  const cfg = getConfig_('config');
+  const cfg = getConfig_(chaveConfig_(email));
   if (cfg) db.config = JSON.parse(cfg);
   return db;
 }
-
-function gravar_(db) {
+function gravar_(email, db) {
   const ss = planilha_();
   Object.keys(ABAS).forEach(function (k) {
     const def = ABAS[k];
     const sh = ss.getSheetByName(def.nome) || ss.insertSheet(def.nome);
+    // Guarda as linhas das outras pessoas como estão.
+    let outras = [];
+    if (sh.getLastRow() >= 2) {
+      const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues(), cab = v.shift();
+      const iu = cab.indexOf('usuario'), iid = cab.indexOf('id');
+      outras = v.filter(function (l) { return l[iid] !== '' && !dele_(iu >= 0 ? l[iu] : '', email); })
+        .map(function (l) { return def.campos.map(function (c) { const i = cab.indexOf(c); return i >= 0 ? l[i] : ''; }); });
+    }
+    const minhas = (db[k] || []).map(function (o) {
+      return def.campos.map(function (c) { if (c === 'usuario') return email; return o[c] === undefined || o[c] === null ? '' : o[c]; });
+    });
+    const linhas = [def.campos].concat(outras, minhas);
     sh.clearContents();
-    const linhas = [def.campos].concat((db[k] || []).map(function (o) {
-      return def.campos.map(function (c) { return o[c] === undefined || o[c] === null ? '' : o[c]; });
-    }));
-    // id, data, hora, foto e gps como texto puro, para o Sheets não converter.
+    // usuario, id, data, hora, foto e gps como texto puro, para o Sheets não converter.
     def.campos.forEach(function (c, i) {
-      if (['id', 'data', 'hora', 'foto', 'gps'].indexOf(c) >= 0) sh.getRange(1, i + 1, Math.max(linhas.length, 1), 1).setNumberFormat('@');
+      if (['usuario', 'id', 'data', 'hora', 'foto', 'gps'].indexOf(c) >= 0) sh.getRange(1, i + 1, Math.max(linhas.length, 1), 1).setNumberFormat('@');
     });
     sh.getRange(1, 1, linhas.length, def.campos.length).setValues(linhas);
     sh.setFrozenRows(1);
   });
-  if (db.config) setConfig_('config', JSON.stringify(db.config));
+  if (db.config) setConfig_(chaveConfig_(email), JSON.stringify(db.config));
 }
 
-// ---------- fotos de recibo (Google Drive) ----------
-function salvarFoto_(b) {
+// ---------- fotos de recibo (Google Drive do dono) ----------
+function salvarFoto_(b, email) {
   if (!b.dados || b.dados.length > 8000000) return { ok: false, erro: 'foto grande demais' };
   const it = DriveApp.getFoldersByName(PASTA_RECIBOS);
   const pasta = it.hasNext() ? it.next() : DriveApp.createFolder(PASTA_RECIBOS);
-  const nome = String(b.nome || 'recibo.jpg').replace(/[^\w.\-]/g, '_');
+  const nome = (email.split('@')[0] + '_' + String(b.nome || 'recibo.jpg')).replace(/[^\w.\-]/g, '_');
   const blob = Utilities.newBlob(Utilities.base64Decode(b.dados), b.mime || 'image/jpeg', nome);
   const arq = pasta.createFile(blob);
+  // Quem não é o dono só consegue abrir a foto pelo link.
+  if (email !== dono_()) { try { arq.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) {} }
   return { ok: true, id: arq.getId(), url: arq.getUrl() };
 }
 
 // ---------- configuração (aba Motolog_Config: chave | valor) ----------
+// O dono continua usando as chaves antigas "config" e "rev".
+function chaveConfig_(email) { return email === dono_() ? 'config' : 'config:' + email; }
+function chaveRev_(email) { return email === dono_() ? 'rev' : 'rev:' + email; }
 function abaConfig_() {
   const ss = planilha_();
   let sh = ss.getSheetByName(ABA_CONFIG);
@@ -135,9 +255,8 @@ function setConfig_(chave, valor) {
   }
   sh.appendRow([chave, valor]);
 }
-function rev_() { return Number(getConfig_('rev')) || 0; }
+function rev_(email) { return Number(getConfig_(chaveRev_(email))) || 0; }
 
-function tokenOk_(t) { return TOKEN !== 'TROQUE-ESTA-SENHA' && t === TOKEN; }
 function saida_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -147,19 +266,23 @@ function saida_(o) {
 function instalarResumoSemanal() {
   desinstalarResumoSemanal();
   ScriptApp.newTrigger('resumoSemanal').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(8).create();
-  Logger.log('Gatilho criado. O e-mail vai para ' + Session.getEffectiveUser().getEmail() + ' toda segunda às 8h (se ligado nos Ajustes do app).');
+  Logger.log('Gatilho criado: toda segunda às 8h, para cada pessoa que ligou o resumo nos Ajustes do app.');
 }
 function desinstalarResumoSemanal() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'resumoSemanal') ScriptApp.deleteTrigger(t); });
 }
-// Para testar na hora: rode esta função no editor (envia mesmo com o aviso desligado).
-function testarResumoSemanal() { resumoSemanal(true); }
+// Para testar na hora: envia o seu resumo agora (mesmo com o aviso desligado).
+function testarResumoSemanal() { enviarResumo_(dono_(), true); }
 
-function resumoSemanal(forcar) {
-  const db = ler_(), cfg = db.config || {};
+function resumoSemanal() {
+  const emails = usuarios_().filter(function (u) { return u.status === 'ativo'; }).map(function (u) { return u.email; });
+  if (emails.indexOf(dono_()) < 0) emails.push(dono_());
+  emails.forEach(function (email) { try { enviarResumo_(email, false); } catch (err) { Logger.log(email + ': ' + err); } });
+}
+
+function enviarResumo_(email, forcar) {
+  const db = ler_(email), cfg = db.config || {};
   if (forcar !== true && !cfg.emailSemanal) return;
-  const email = Session.getEffectiveUser().getEmail();
-  if (!email) return;
   const tz = planilha_().getSpreadsheetTimeZone();
   const fmtD = function (d) { return Utilities.formatDate(d, tz, 'yyyy-MM-dd'); };
   const hoje = new Date(), ini7 = fmtD(new Date(hoje.getTime() - 7 * 864e5)), mes = fmtD(hoje).slice(0, 7);

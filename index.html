@@ -212,6 +212,18 @@ input.big{font-size:1.25rem;font-weight:700;padding:14px 16px}
 .fotoBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .fotoBtns .btn{margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;padding:12px 8px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 body.sheet-aberta main{display:none}
+.login{position:fixed;inset:0;z-index:60;display:none;overflow:auto;background:var(--bg);padding:calc(28px + env(safe-area-inset-top)) 18px 28px}
+body.sem-login .login{display:block}
+body.sem-login{overflow:hidden}
+.login-card{max-width:420px;margin:0 auto}
+.login-logo{display:flex;align-items:center;justify-content:center;gap:10px;font-size:1.7rem;font-weight:800;margin:10px 0 22px}
+.login-logo svg{width:34px;height:34px;color:var(--accent);fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.login .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:6px}
+.login .seg button{border:0;background:none;color:var(--muted);font:inherit;font-weight:700;padding:10px;border-radius:10px}
+.login .seg button.on{background:var(--accent);color:#1c1200}
+.login input{font-size:1.05rem}
+#lgMsg{min-height:1.2em;font-size:.95rem;color:var(--text)}
+#lgMsg.bad{color:var(--bad)} #lgMsg.ok{color:var(--ok)}
 .avisoTroca{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(5,8,12,.7)}
 .avisoTroca.open{display:flex}
 .avisoTroca .card{width:100%;max-width:420px;margin:0;border:2px solid var(--warn)}
@@ -368,17 +380,12 @@ body.sheet-aberta .hdate{display:none}
       <p class="note" id="instalarNota"></p>
     </div>
     <div class="card">
-      <h2>Planilha Google</h2>
-      <p class="note">Com a planilha conectada, tudo que você salvar aqui também é gravado nela. Se o celular der problema, os dados continuam na planilha.</p>
-      <label>URL do app da Web (Apps Script)</label><input type="url" id="syUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      <label>Senha (TOKEN do script)</label><input type="password" id="syTok" autocomplete="off">
-      <button class="btn" id="syConectar">Conectar</button>
-      <div id="syConectado" class="hidden">
-        <p class="note" id="syInfo"></p>
-        <button class="btn sec" id="syBaixar">Baixar dados da planilha</button>
-        <button class="btn sec" id="syEnviar">Enviar dados deste aparelho para a planilha</button>
-        <button class="btn danger" id="syDesconectar">Desconectar</button>
-      </div>
+      <h2>Conta</h2>
+      <p class="note" id="syInfo"></p>
+      <button class="btn sec" id="syBaixar">Baixar meus dados da planilha</button>
+      <button class="btn sec" id="syEnviar">Enviar dados deste aparelho para a planilha</button>
+      <button class="btn danger" id="sySair">Sair desta conta</button>
+      <p class="note">Ao sair, os dados deste aparelho são apagados. Eles continuam guardados na planilha.</p>
     </div>
     <div class="card">
       <h2>Backup</h2>
@@ -468,6 +475,21 @@ body.sheet-aberta .hdate{display:none}
       </div>
     </form>
 </div></div>
+<div class="login" id="login">
+  <div class="login-card">
+    <div class="login-logo"><svg viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M15 6h2.5l3 7.5M5.5 17l4-7h6l3 7M9 10 7.5 7H5"/></svg>Motolog</div>
+    <div class="seg" id="loginModo"><button type="button" data-m="entrar" class="on">Entrar</button><button type="button" data-m="criar">Criar conta</button></div>
+    <form id="loginForm" autocomplete="on">
+      <div id="lgNomeBox" class="hidden"><label>Seu nome</label><input type="text" name="nome" autocomplete="name"></div>
+      <label>E-mail</label><input type="email" name="email" autocomplete="username" inputmode="email" required>
+      <label>Senha</label><input type="password" name="senha" autocomplete="current-password" minlength="6" required>
+      <div id="lgSenha2Box" class="hidden"><label>Repita a senha</label><input type="password" name="senha2" autocomplete="new-password" minlength="6"></div>
+      <button class="btn" type="submit" id="lgBtn">Entrar</button>
+    </form>
+    <p class="note" id="lgMsg" aria-live="polite"></p>
+    <p class="note" id="lgDica">Você entra uma vez neste aparelho e continua conectado.</p>
+  </div>
+</div>
 <div class="vozModal" id="vozModal" role="dialog" aria-modal="true" aria-label="Registro por voz">
   <div class="vmTopo"><span id="vmEtapa">1 de 3</span><button type="button" class="vmCancel" id="vmCancel">Cancelar</button></div>
   <h3 id="vmNome">Litros</h3>
@@ -539,27 +561,37 @@ function save(){ saveLocal(); if (sync.url){ sync.pendente = true; saveSync(); a
 
 // ---------- sincronização com a planilha Google ----------
 const SKEY = 'motolog.sync';
+// Endereço fixo do script da planilha. A proteção é o login de cada pessoa.
+const API_URL = 'https://script.google.com/macros/s/AKfycbzwzU2PMmnJpADqbIXDBliCxi1mjiA4iwF0hccqjgoP09wslFm1ME_a4ZIL9VorMLEx/exec';
 let sync = {};
 try { sync = JSON.parse(localStorage.getItem(SKEY)) || {}; } catch {}
+// Versão antiga (senha única do script): pede login, mas mantém os dados e a versão para não perder nada.
+if (sync.token || (sync.url && !sync.sessao)){ sync = { rev: sync.rev, pendente: sync.pendente, legado: true }; try { localStorage.setItem(SKEY, JSON.stringify(sync)); } catch {} }
+if (sync.sessao) sync.url = API_URL;
 function saveSync(){ try { localStorage.setItem(SKEY, JSON.stringify(sync)); } catch {} }
 function status(txt, st){ const el = document.getElementById('syncSt'); if (!el) return; el.textContent = txt; el.parentElement.dataset.s = st || ''; }
 function statusAtual(){
-  if (!sync.url) return status('Salvo só neste aparelho · conecte a planilha em Ajustes');
+  if (!sync.url) return status('Salvo só neste aparelho');
   status(sync.pendente ? 'Alterações ainda não enviadas à planilha' : 'Sincronizado com a planilha', sync.pendente ? 'warn' : 'ok');
 }
 const temDados = d => d && ((d.abastecimentos||[]).length + (d.manutencoes||[]).length + (d.gastos||[]).length) > 0;
 
 async function apiGet(){
-  const r = await fetch(sync.url + (sync.url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(sync.token));
+  const r = await fetch(API_URL + '?sessao=' + encodeURIComponent(sync.sessao || ''));
   const j = await r.json();
   if (!j.ok) throw new Error(j.erro || 'erro');
   return j;
 }
-async function apiPost(baseRev){
-  // text/plain evita a verificação CORS prévia, que o Apps Script não aceita.
-  const r = await fetch(sync.url, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify({ token: sync.token, baseRev, db }) });
+// text/plain evita a verificação CORS prévia, que o Apps Script não aceita.
+async function postar(corpo){
+  const r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify(corpo) });
   return r.json();
+}
+async function apiPost(baseRev){ return postar({ sessao: sync.sessao, baseRev, db }); }
+// Sessão expirada ou conta bloqueada: volta para a tela de entrar.
+function sessaoCaiu(){
+  toast('Sua sessão terminou. Entre de novo.');
+  sync = { rev: sync.rev, pendente: sync.pendente, legado: true, email: sync.email }; saveSync(); mostrarLogin();
 }
 function adotar(remoto, rev){
   const cfg = db.config;
@@ -579,9 +611,7 @@ async function enviar(forcar){
       // A planilha mudou por outro aparelho: ela vence, para não apagar dados de lá.
       adotar(j.db, j.rev);
       toast('A planilha tinha dados mais novos. Confira sua última alteração.');
-    } else if (j.erro === 'token'){
-      toast('A senha salva no app não confere com a do script. Abra a engrenagem, toque em Desconectar e conecte de novo com a senha atual do script.');
-      enviando = false; status('Senha da planilha não confere · reconecte em Ajustes', 'bad'); return;
+    } else if (j.erro === 'sessao'){ enviando = false; sessaoCaiu(); return;
     } else { toast('A planilha recusou o envio: ' + j.erro); }
     enviando = false; statusAtual(); return;
   } catch { toast('Sem conexão. Envio pendente.'); }
@@ -595,7 +625,7 @@ async function baixar(silencioso){
     if (sync.pendente && j.rev === (sync.rev || 0)) { await enviar(); return; }
     adotar(j.db, j.rev);
     if (!silencioso) toast('Dados baixados da planilha ✓');
-  } catch (e) { if (e.message === 'token'){ status('Senha da planilha não confere · reconecte em Ajustes', 'bad'); return; } if (!silencioso) toast('Não consegui acessar a planilha'); }
+  } catch (e) { if (e.message === 'sessao'){ sessaoCaiu(); return; } if (!silencioso) toast('Não consegui acessar a planilha'); }
   statusAtual();
 }
 window.addEventListener('online', () => { if (sync.pendente) enviar(); });
@@ -614,22 +644,76 @@ async function comprimir(file){
 }
 async function enviarFoto(file, nome){
   const dados = await comprimir(file);
-  const r = await fetch(sync.url, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify({ token: sync.token, acao: 'foto', nome, mime: 'image/jpeg', dados }) });
-  const j = await r.json();
+  const j = await postar({ sessao: sync.sessao, acao: 'foto', nome, mime: 'image/jpeg', dados });
   if (!j.ok) throw new Error(j.erro === 'formato' ? 'reimplante o script novo' : (j.erro || 'erro'));
   return j.url;
 }
 
 function renderSync(){
-  const on = !!sync.url;
-  document.getElementById('syUrl').value = sync.url || '';
-  document.getElementById('syTok').value = sync.token || '';
-  document.getElementById('syConectar').classList.toggle('hidden', on);
-  document.getElementById('syConectado').classList.toggle('hidden', !on);
-  ['syUrl','syTok'].forEach(i => document.getElementById(i).disabled = on);
-  document.getElementById('syInfo').textContent = on ? 'Conectado. Versão da planilha: ' + (sync.rev || 0) + '.' : '';
+  const on = !!sync.sessao;
+  document.getElementById('syInfo').innerHTML = on ? `Conectado como <b>${esc(sync.nome || sync.email)}</b> (${esc(sync.email)}). Tudo que você salva vai para a planilha.` : '';
   statusAtual();
+}
+
+// ---------- entrar / criar conta ----------
+let modoLogin = 'entrar';
+function mostrarLogin(){ document.body.classList.add('sem-login'); renderModoLogin(); }
+function renderModoLogin(){
+  const criar = modoLogin === 'criar', f = $('#loginForm');
+  document.querySelectorAll('#loginModo button').forEach(b => b.classList.toggle('on', b.dataset.m === modoLogin));
+  $('#lgNomeBox').classList.toggle('hidden', !criar); $('#lgSenha2Box').classList.toggle('hidden', !criar);
+  f.senha.autocomplete = criar ? 'new-password' : 'current-password';
+  $('#lgBtn').textContent = criar ? 'Criar conta' : 'Entrar';
+  $('#lgDica').textContent = criar ? 'Depois de criar, o dono do app precisa aprovar seu acesso. Você recebe acesso assim que ele aprovar.' : 'Você entra uma vez neste aparelho e continua conectado.';
+  if (sync.email && !f.email.value) f.email.value = sync.email;
+}
+function prepararLogin(){
+$('#loginModo').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; modoLogin = b.dataset.m; $('#lgMsg').textContent = ''; renderModoLogin(); });
+const MSG_LOGIN = { credenciais: 'E-mail ou senha incorretos.', pendente: 'Seu cadastro ainda está esperando aprovação do dono do app.', bloqueado: 'Este acesso foi bloqueado. Fale com o dono do app.',
+  bloqueio: 'Muitas tentativas erradas. Espere 10 minutos e tente de novo.', existe: 'Já existe uma conta com este e-mail. Use Entrar.', email: 'Confira o e-mail.',
+  senha_curta: 'A senha precisa ter pelo menos 6 caracteres.', token: 'O script da planilha ainda é a versão antiga. Atualize o script e reimplante como nova versão.' };
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, msg = $('#lgMsg'), btn = $('#lgBtn');
+  const email = f.email.value.trim().toLowerCase(), senha = f.senha.value;
+  const aviso = (t, cls) => { msg.textContent = t; msg.className = 'note ' + (cls || ''); };
+  if (modoLogin === 'criar' && senha !== f.senha2.value){ aviso('As senhas não são iguais.', 'bad'); return; }
+  btn.disabled = true; aviso(modoLogin === 'criar' ? 'Criando conta…' : 'Entrando…');
+  try {
+    if (modoLogin === 'criar'){
+      const j = await postar({ acao: 'cadastro', email, senha, nome: f.nome.value.trim() });
+      if (!j.ok) aviso(MSG_LOGIN[j.erro] || 'Não consegui criar a conta (' + j.erro + ').', 'bad');
+      else { aviso('Conta criada! Agora é só esperar o dono do app aprovar. Depois, entre com este e-mail e senha.', 'ok'); modoLogin = 'entrar'; renderModoLogin(); f.senha.value = ''; f.senha2.value = ''; }
+    } else {
+      const j = await postar({ acao: 'login', email, senha });
+      if (!j.ok){ aviso(MSG_LOGIN[j.erro] || 'Não consegui entrar (' + j.erro + ').', 'bad'); }
+      else { f.senha.value = ''; aviso(''); await entrou(j); }
+    }
+  } catch { aviso('Sem conexão com a planilha. Confira a internet e tente de novo.', 'bad'); }
+  btn.disabled = false;
+});
+}
+async function entrou(j){
+  const antigo = sync, mesmoDono = !antigo.email || antigo.email === j.usuario.email;
+  sync = { url: API_URL, sessao: j.sessao, email: j.usuario.email, nome: j.usuario.nome, rev: mesmoDono ? (antigo.rev || 0) : 0, pendente: mesmoDono && !!antigo.pendente };
+  if (!mesmoDono){ db = vazio(); saveLocal(); load(); }
+  saveSync();
+  document.body.classList.remove('sem-login');
+  status('Baixando seus dados…', 'warn');
+  try {
+    const r = await apiGet();
+    if (!temDados(r.db) && temDados(db)){ sync.rev = r.rev; saveSync(); await enviar(true); }
+    else if (sync.pendente && r.rev === sync.rev){ await enviar(); }
+    else adotar(r.db, r.rev);
+  } catch { toast('Entrou, mas não consegui baixar os dados agora.'); }
+  init(); toast('Olá' + (sync.nome ? ', ' + sync.nome.split(' ')[0] : '') + '! ✓');
+  abrir('abast'); abrirFolha('f');
+}
+async function sair(){
+  if (sync.pendente && !confirm('Há alterações ainda não enviadas à planilha. Sair mesmo assim e perdê-las?')) return;
+  if (!sync.pendente && !confirm('Sair desta conta neste aparelho?')) return;
+  try { await postar({ sessao: sync.sessao, acao: 'sair' }); } catch {}
+  const email = sync.email; sync = { email }; saveSync(); db = vazio(); saveLocal(); load(); init(); fecharFolha(true); mostrarLogin();
 }
 
 // ---------- utilidades ----------
@@ -1450,7 +1534,7 @@ for (const [t, f] of Object.entries(forms)){
     if (!o.hora) o.hora = new Date().toTimeString().slice(0,5);
     if (!o.data) o.data = hoje();
     if (arq){
-      if (!sync.url) toast('Recibo não guardado: conecte a planilha em Ajustes para salvar fotos no Drive.');
+      if (!sync.sessao) toast('Recibo não guardado: entre na sua conta para salvar fotos no Drive.');
       else {
         btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Enviando foto…';
         try { o.foto = await enviarFoto(arq, `${o.data}_${colecao[t]}_${o.id}.jpg`); }
@@ -1576,30 +1660,13 @@ $('#imp').addEventListener('change', async e => {
   } catch { toast('Arquivo inválido'); }
 });
 $('#zerar').addEventListener('click', () => {
-  const msg = sync.url ? 'Apagar os dados DESTE APARELHO e desconectar da planilha? A planilha não é alterada.'
+  if (sync.sessao){ sair(); return; }
+  const msg = sync.url ? 'Apagar os dados DESTE APARELHO? A planilha não é alterada.'
                        : 'Apagar TODOS os dados? Exporte um backup antes.';
   if (!confirm(msg)) return;
   sync = {}; saveSync(); db = vazio(); saveLocal(); init(); toast('Dados apagados');
 });
 
-document.getElementById('syConectar').addEventListener('click', async () => {
-  const url = document.getElementById('syUrl').value.trim(), token = document.getElementById('syTok').value.trim();
-  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { toast('Cole a URL do app da Web do Apps Script'); return; }
-  if (!token) { toast('Informe a senha do script'); return; }
-  sync = { url, token, rev: 0, pendente: false };
-  let j;
-  try { status('Conectando…', 'warn'); j = await apiGet(); }
-  catch (e) { sync = {}; statusAtual(); toast(e.message === 'token' ? 'Senha incorreta (ou TOKEN não trocado no script)' : 'Não consegui acessar o script. Confira a URL e a implantação.'); return; }
-  saveSync();
-  if (!temDados(j.db)) {
-    sync.rev = j.rev; saveSync(); await enviar(true); toast('Conectado. Dados enviados para a planilha ✓');
-  } else if (!temDados(db) || confirm('A planilha já tem dados. Usar os dados da planilha neste aparelho? (Cancelar = manter os deste aparelho e substituir a planilha)')) {
-    adotar(j.db, j.rev); toast('Conectado. Dados da planilha carregados ✓');
-  } else {
-    await enviar(true); toast('Conectado. Planilha atualizada com os dados deste aparelho ✓');
-  }
-  renderSync();
-});
 document.getElementById('syBaixar').addEventListener('click', async () => {
   if (sync.pendente && !confirm('Há alterações deste aparelho ainda não enviadas. Baixar mesmo assim e perdê-las?')) return;
   sync.pendente = false; await baixar(); renderSync();
@@ -1608,10 +1675,7 @@ document.getElementById('syEnviar').addEventListener('click', async () => {
   if (!confirm('Substituir os dados da planilha pelos deste aparelho?')) return;
   await enviar(true); toast('Planilha atualizada ✓'); renderSync();
 });
-document.getElementById('syDesconectar').addEventListener('click', () => {
-  if (!confirm('Desconectar da planilha? Os dados continuam neste aparelho e na planilha.')) return;
-  sync = {}; saveSync(); renderSync();
-});
+document.getElementById('sySair').addEventListener('click', sair);
 
 document.querySelectorAll('#periodo button').forEach(b => b.addEventListener('click', () => {
   per = +b.dataset.v; document.querySelectorAll('#periodo button').forEach(x => x.classList.toggle('on', x === b)); renderAnalise(kmAtual());
@@ -1620,6 +1684,7 @@ $('#relGerar').addEventListener('click', () => gerarRelatorio($('#relAno').value
 $('#btnCfg').addEventListener('click', () => { fecharFolha(); abrir('ajustes'); });
 
 prepararVoz();
+prepararLogin();
 for (const f of Object.values(forms)) ['fotoCam','fotoArq'].forEach((n, i, ns) => f[n].addEventListener('change', () => {
   const a = f[n].files[0]; if (!a) return; f[ns[1-i]].value = '';
   f.querySelector('.fotoAtual').textContent = 'Foto pronta: vai junto ao salvar ✓';
@@ -1627,8 +1692,8 @@ for (const f of Object.values(forms)) ['fotoCam','fotoArq'].forEach((n, i, ns) =
 
 function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); renderInstalar(); }
 load(); init();
-if (sync.url) baixar(true);
-abrir('abast'); abrirFolha('f'); // abre direto no registro de abastecimento
+if (sync.sessao) baixar(true); else mostrarLogin();
+abrir('abast'); if (sync.sessao) abrirFolha('f'); // abre direto no registro de abastecimento
 // App instalável: service worker com cache para funcionar offline.
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
