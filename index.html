@@ -488,7 +488,10 @@ async function enviar(forcar){
       // A planilha mudou por outro aparelho: ela vence, para não apagar dados de lá.
       adotar(j.db, j.rev);
       toast('A planilha tinha dados mais novos. Confira sua última alteração.');
-    } else { toast('Planilha recusou: ' + j.erro); }
+    } else if (j.erro === 'token'){
+      toast('A senha salva no app não confere com a do script. Abra a engrenagem, toque em Desconectar e conecte de novo com a senha atual do script.');
+      enviando = false; status('Senha da planilha não confere · reconecte em Ajustes', 'bad'); return;
+    } else { toast('A planilha recusou o envio: ' + j.erro); }
     enviando = false; statusAtual(); return;
   } catch { toast('Sem conexão. Envio pendente.'); }
   enviando = false; status('Erro ao sincronizar · envio pendente', 'bad');
@@ -501,7 +504,7 @@ async function baixar(silencioso){
     if (sync.pendente && j.rev === (sync.rev || 0)) { await enviar(); return; }
     adotar(j.db, j.rev);
     if (!silencioso) toast('Dados baixados da planilha ✓');
-  } catch { if (!silencioso) toast('Não consegui acessar a planilha'); }
+  } catch (e) { if (e.message === 'token'){ status('Senha da planilha não confere · reconecte em Ajustes', 'bad'); return; } if (!silencioso) toast('Não consegui acessar a planilha'); }
   statusAtual();
 }
 window.addEventListener('online', () => { if (sync.pendente) enviar(); });
