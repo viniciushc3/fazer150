@@ -1,0 +1,1032 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10151c">
+<title>Motolog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0a0b0f; --card:#13151c; --card2:#1a1d27; --text:#eef0f5; --muted:#8b92a3; --line:rgba(255,255,255,.07);
+  --accent:#ff7a1a; --accent2:#ffb547; --accent-soft:rgba(255,122,26,.14);
+  --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  --fuel:#38bdf8; --maint:#a78bfa; --other:#f472b6;
+  --r:18px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-feature-settings:"tnum" 1}
+body{background:radial-gradient(1200px 500px at 85% -10%,rgba(255,122,26,.13),transparent 60%),radial-gradient(900px 400px at -10% 10%,rgba(56,189,248,.07),transparent 60%),var(--bg);background-attachment:fixed;min-height:100vh}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;padding:14px 16px;padding-top:max(14px,env(safe-area-inset-top));background:rgba(10,11,15,.72);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0d00;box-shadow:0 6px 20px rgba(255,122,26,.35)}
+.logo svg{width:22px;height:22px;stroke-width:2.4}
+header .ttl{flex:1;min-width:0}
+header h1{margin:0;font-size:1.05rem;font-weight:800;letter-spacing:-.01em}
+header small{color:var(--muted);font-size:.8rem}
+#syncSt{font-size:.75rem;color:var(--muted);background:var(--card);border:1px solid var(--line);padding:5px 10px;border-radius:99px;white-space:nowrap}
+#syncSt:empty{display:none}
+main{max-width:640px;margin:0 auto;padding:18px 16px 110px}
+nav{position:fixed;bottom:max(12px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:calc(100% - 24px);max-width:520px;z-index:5;display:flex;gap:2px;padding:6px;background:rgba(22,24,32,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:22px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+nav button{flex:1;border:0;background:none;color:var(--muted);padding:8px 2px;border-radius:16px;font:inherit;font-size:.68rem;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:3px;transition:background .2s,color .2s}
+nav button.on{color:var(--accent);background:var(--accent-soft);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 12px;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.hero{position:relative;overflow:hidden;border-radius:22px;padding:20px;margin-bottom:12px;background:linear-gradient(140deg,#ff7a1a 0%,#ff9a3d 45%,#ffb547 100%);color:#1a0d00;box-shadow:0 18px 40px rgba(255,122,26,.25)}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;border:28px solid rgba(255,255,255,.14)}
+.hero small{font-weight:600;opacity:.75;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem}
+.hero b{display:block;font-size:2.4rem;font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-top:4px}
+.hero .sub{display:flex;gap:18px;margin-top:14px;font-size:.85rem;font-weight:500}
+.hero .sub span b{display:inline;font-size:1rem;letter-spacing:0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.stat b{display:block;font-size:1.3rem;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.stat small{color:var(--muted);font-size:.78rem}
+label{display:block;font-size:.78rem;font-weight:500;color:var(--muted);margin:12px 0 6px}
+input,select,textarea{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card2);color:var(--text);font:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input[readonly]{color:var(--accent2);font-weight:600}
+input::placeholder,textarea::placeholder{color:#5c6273}
+textarea{min-height:70px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.check{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--text);font-size:.92rem}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px;padding:14px 16px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a0d00;font:inherit;font-weight:700;width:100%;margin-top:16px;box-shadow:0 8px 24px rgba(255,122,26,.25);transition:transform .1s}
+.btn:active{transform:scale(.98)}
+.btn.sec{background:var(--card2);color:var(--text);border:1px solid var(--line);box-shadow:none;font-weight:600;margin-top:10px}
+.btn.danger{background:none;color:var(--bad);border:1px solid rgba(248,113,113,.35);box-shadow:none;font-weight:600;margin-top:10px}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0;padding-top:2px}
+.ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;color:var(--c);background:color-mix(in srgb,var(--c) 15%,transparent)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 4px color-mix(in srgb,currentColor 18%,transparent)}
+.grow{flex:1;min-width:0}
+.grow .t{font-weight:600}
+.grow .s{color:var(--muted);font-size:.8rem;margin-top:1px}
+.amt{font-weight:700;white-space:nowrap}
+.acts{display:flex;justify-content:flex-end;gap:2px;margin-top:4px}
+.mini{border:0;background:none;color:var(--muted);padding:5px;border-radius:8px;display:grid;place-items:center}
+.mini svg{width:16px;height:16px}
+.mini:active{background:var(--card2)}
+.tag{display:inline-block;font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent2);margin-left:4px;vertical-align:1px}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+.empty{color:var(--muted);text-align:center;padding:18px 0}
+.hidden{display:none!important}
+.bar{height:8px;border-radius:99px;background:var(--card2);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;border-radius:99px}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(10px);background:#fff;color:#111;font-weight:600;padding:10px 18px;border-radius:99px;font-size:.88rem;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:9;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.note{font-size:.8rem;color:var(--muted)}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
+section{animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ===== Tema "painel" (cinza azulado) ===== */
+:root{ --bg:#10151c; --card:#19202a; --card2:#212935; --line:#29323f; --text:#e9edf3; --muted:#8693a6;
+  --accent:#f59e0b; --accent2:#fbbf24; --accent-soft:rgba(245,158,11,.14); --teal:#22c3d6; --r:16px; }
+body{background:var(--bg)}
+header{display:block;background:rgba(16,21,28,.9);padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+.hrow{display:flex;align-items:center;gap:10px}
+header h1{flex:1;display:flex;align-items:center;gap:8px;font-size:1.2rem;font-weight:800}
+header h1 svg{color:var(--accent);width:22px;height:22px}
+.kmbadge{font-size:.78rem;font-weight:700;color:var(--accent2);background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.3);padding:4px 10px;border-radius:99px;white-space:nowrap}
+.kmbadge:empty{display:none}
+.hdate{margin-top:6px;font-size:.7rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.hsync{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:.74rem;color:var(--muted)}
+.hsync i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.hsync[data-s=ok] i{background:var(--ok)} .hsync[data-s=warn] i{background:var(--warn)} .hsync[data-s=bad] i{background:var(--bad)}
+.hsync[data-s=bad]{color:var(--bad)}
+#syncSt{all:unset}
+.card h2{display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:800;color:var(--text);letter-spacing:.1em}
+.card h2 svg{width:16px;height:16px;color:var(--accent)}
+.stat{position:relative;overflow:hidden;padding:14px 14px 16px}
+.stat::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;border-radius:2px;background:var(--c,var(--teal));opacity:.85}
+.stat small{display:flex;align-items:center;gap:6px;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.stat small svg{width:13px;height:13px;color:var(--c)}
+.stat b{font-size:1.45rem;font-weight:800;margin-top:6px}
+.stat b span{font-size:.75rem;font-weight:500;color:var(--muted);margin-left:2px}
+.stat em{display:block;font-style:normal;font-size:.75rem;color:var(--muted);margin-top:2px}
+.tank{display:flex;align-items:center;gap:18px}
+.tank .g{position:relative;width:118px;flex:none}
+.tank .g svg{width:118px;height:96px;display:block}
+.tank .g b{position:absolute;left:0;right:0;top:44px;text-align:center;font-size:.95rem;font-weight:800}
+.tank small{display:block;font-size:.66rem;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.tank .v{display:block;font-size:1.3rem;font-weight:800;margin:2px 0 10px}
+.sep{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+.chart{position:relative;height:130px}
+.chart svg{width:100%;height:100%;display:block;overflow:visible}
+.chart .last{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(245,158,11,.2)}
+.axis{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:8px}
+.hp{padding:10px 0}
+.hp+.hp{border-top:1px solid var(--line)}
+.hp .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.hp .top b{font-size:.92rem}
+.hp .top span{font-size:.72rem;font-weight:700;white-space:nowrap}
+.hp .bar{height:6px;margin:7px 0 5px;background:var(--card2)}
+.hp em{font-style:normal;font-size:.72rem;color:var(--muted)}
+.linkbtn{display:block;margin:8px auto 0;border:0;background:none;color:var(--muted);font:inherit;font-size:.8rem;text-decoration:underline}
+nav{background:rgba(25,32,42,.9)}
+.btn{background:var(--accent);color:#1c1200;box-shadow:none}
+.tag{color:var(--accent2)}
+
+.seg{display:flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:14px}
+.seg button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;font-weight:600;padding:8px 4px;border-radius:9px}
+.seg button.on{background:var(--card2);color:var(--accent2)}
+.cols{display:flex;align-items:flex-end;gap:6px;height:140px}
+.cols .c{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;min-width:0}
+.cols .stk{flex:1;width:100%;max-width:22px;display:flex;flex-direction:column-reverse;border-radius:5px;overflow:hidden;background:var(--card2)}
+.cols .stk i{display:block;width:100%}
+.cols .c span{font-size:.64rem;color:var(--muted);white-space:nowrap}
+.cols .c.on span{color:var(--accent2);font-weight:700}
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:.74rem;color:var(--muted)}
+.leg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.cfg{display:grid;grid-template-columns:1fr 84px 64px;gap:8px;align-items:center;font-size:.86rem}
+.cfg input{padding:8px 9px;text-align:right}
+.cfg .hh{color:var(--muted);font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+.icon-btn{border:1px solid var(--line);background:var(--card);color:var(--muted);width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+.icon-btn svg{width:17px;height:17px}
+.alerta{display:flex;gap:12px;align-items:flex-start;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.35);border-radius:var(--r);padding:14px;margin-bottom:14px}
+.alerta svg{color:var(--bad);margin-top:2px}
+.alerta b{display:block;color:var(--bad);margin-bottom:2px}
+.alerta p{margin:0;font-size:.84rem;color:var(--text)}
+.pt{display:grid;grid-template-columns:1fr auto auto auto;gap:4px 12px;align-items:center;font-size:.84rem}
+.pt .hh{color:var(--muted);font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;text-align:right}
+.pt .hh:first-child{text-align:left}
+.pt .n{text-align:right;font-weight:600;white-space:nowrap}
+.pt .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt .nm small{display:block;color:var(--muted);font-size:.7rem}
+.pt>div{padding:8px 0;border-top:1px solid var(--line)}
+.recibo{display:inline-flex;align-items:center;gap:4px;color:var(--accent2);font-size:.78rem;text-decoration:none;margin-top:2px}
+.recibo svg{width:13px;height:13px}
+input[type=file]{padding:9px;font-size:.85rem}
+#relatorio{display:none}
+@media print{
+  body.imprimindo{background:#fff!important;color:#111}
+  body.imprimindo > *:not(#relatorio){display:none!important}
+  body.imprimindo #relatorio{display:block;font:11pt/1.4 Inter,Arial,sans-serif;color:#111;padding:0}
+  #relatorio h1{font-size:20pt;margin:0}
+  #relatorio h2{font-size:12pt;margin:18pt 0 6pt;border-bottom:1.5pt solid #f59e0b;padding-bottom:3pt}
+  #relatorio .sub{color:#555;margin:2pt 0 12pt}
+  #relatorio table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  #relatorio th,#relatorio td{text-align:left;padding:4pt 6pt;border-bottom:.5pt solid #ddd}
+  #relatorio th{background:#f3f4f6;font-weight:700}
+  #relatorio td.r,#relatorio th.r{text-align:right}
+  #relatorio .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6pt}
+  #relatorio .kpi div{border:.5pt solid #ddd;border-radius:6pt;padding:6pt 8pt}
+  #relatorio .kpi small{display:block;color:#666;font-size:8pt;text-transform:uppercase;letter-spacing:.05em}
+  #relatorio .kpi b{font-size:12pt}
+  #relatorio a{color:#111}
+  #relatorio tr{break-inside:avoid}
+  @page{margin:14mm}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow"><h1><svg viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M15 6h2.5l3 7.5M5.5 17l4-7h6l3 7M9 10 7.5 7H5"/></svg>Motolog</h1><span class="kmbadge" id="sKm"></span><button class="icon-btn" id="btnCfg" type="button" aria-label="Ajustes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+  <div class="hdate"><span id="hDate"></span> · <span id="hdrSub">Yamaha Fazer 150</span></div>
+  <div class="hsync" id="hSync"><i></i><span id="syncSt"></span></div>
+</header>
+
+<main>
+  <!-- RESUMO -->
+  <section id="tab-resumo">
+    <div id="alerta"></div>
+    <div class="grid">
+      <div class="stat" style="--c:var(--teal)"><small><svg viewBox="0 0 24 24"><path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/></svg>Média</small><b id="sCons">–</b><em>consumo médio</em></div>
+      <div class="stat" style="--c:var(--accent)"><small><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Gasto mensal</small><b id="sMes">–</b><em>este mês</em></div>
+      <div class="stat" style="--c:#f97316"><small><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Custo / km</small><b id="sCkm">–</b><em>média geral</em></div>
+      <div class="stat" style="--c:var(--teal)"><small><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Gasto semanal</small><b id="sSem">–</b><em>últimos 7 dias</em></div>
+    </div>
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24"><path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/></svg>Previsão de tanque</h2>
+      <div class="tank">
+        <div class="g"><svg viewBox="0 0 120 100" aria-hidden="true"><defs><linearGradient id="gg" x1="0" x2="1"><stop offset="0" stop-color="#f97316"/><stop offset=".55" stop-color="#fbbf24"/><stop offset="1" stop-color="#22c3d6"/></linearGradient></defs>
+          <path d="M20 85 A46 46 0 1 1 100 85" fill="none" stroke="var(--card2)" stroke-width="12" stroke-linecap="round"/>
+          <path d="M20 85 A46 46 0 1 1 100 85" fill="none" stroke="url(#gg)" stroke-width="12" stroke-linecap="round"/></svg><b id="sTanque">–</b></div>
+        <div><small>Autonomia total</small><span class="v" id="sAut">–</span><small>Custo por dia</small><span class="v" id="sDia" style="margin-bottom:0">–</span></div>
+      </div>
+      <p class="note sep" id="tankNote"></p>
+    </div>
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>Evolução do consumo</h2>
+      <div class="chart" id="chart"></div>
+      <div class="axis"><span id="cMin"></span><span id="cMax"></span></div>
+    </div>
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.2 12h4.3l1.5-3 3 6 1.5-3h7.3"/></svg>Saúde da moto</h2>
+      <div id="saude"></div>
+      <button class="linkbtn" type="button" onclick="document.getElementById('btnCfg').click()">Ajustar intervalos</button>
+    </div>
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>Gastos totais</h2>
+      <div id="totais"></div>
+    </div>
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Últimos registros</h2>
+      <ul class="list" id="ultimos"></ul>
+    </div>
+  </section>
+
+  <!-- ANÁLISE -->
+  <section id="tab-analise" class="hidden">
+    <div class="seg" id="periodo"><button data-v="6">6 meses</button><button data-v="12" class="on">12 meses</button><button data-v="0">Tudo</button></div>
+    <div class="grid" id="kpis"></div>
+    <div class="card"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Este mês</h2><div id="aGauge"></div></div>
+    <div class="card"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>Custo por km</h2><div id="aLinha"></div></div>
+    <div class="card"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17V9M13 17V5M18 17v-3"/></svg>Gasto por mês</h2><div id="aMes"></div></div>
+    <div class="card"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6M16 12h-6M13 16h-3"/></svg>Por categoria</h2><div id="aCat"></div></div>
+    <div class="card"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Comparar postos</h2><div id="aPostos"></div></div>
+    <div class="card"><h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>Relatório anual em PDF</h2>
+      <p class="note" style="margin-top:0">Gera um relatório do ano com gastos, consumo, manutenções e abastecimentos. Na janela de impressão, escolha "Salvar como PDF". Útil para guardar ou mostrar na hora de vender a moto.</p>
+      <div class="row" style="grid-template-columns:1fr 1.4fr;align-items:end"><div><label>Ano</label><select id="relAno"></select></div><button class="btn" id="relGerar" type="button" style="margin-top:0">Gerar PDF</button></div>
+    </div>
+  </section>
+
+  <!-- ABASTECIMENTO -->
+  <section id="tab-abast" class="hidden">
+    <div class="card">
+      <h2 id="fTitle">Novo abastecimento</h2>
+      <form id="fForm">
+        <input type="hidden" name="id">
+        <div class="row">
+          <div><label>Data</label><input type="date" name="data" required></div>
+          <div><label>Km no painel</label><input type="number" name="km" inputmode="numeric" min="0" required></div>
+        </div>
+        <div class="row">
+          <div><label>Litros</label><input type="number" name="litros" step="0.01" inputmode="decimal" min="0" required></div>
+          <div><label>Valor total (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
+        </div>
+        <div class="row">
+          <div><label>Combustível</label>
+            <select name="comb"><option>Gasolina comum</option><option>Gasolina aditivada</option><option>Gasolina premium</option><option>Etanol</option></select>
+          </div>
+          <div><label>Preço/litro</label><input type="text" name="ppl" readonly tabindex="-1"></div>
+        </div>
+        <label>Posto (opcional)</label><input type="text" name="posto" list="postosList" autocomplete="off"><datalist id="postosList"></datalist>
+        <label class="check"><input type="checkbox" name="cheio" checked> Completei o tanque</label>
+        <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
+        <button class="btn" type="submit">Salvar abastecimento</button>
+        <button class="btn sec hidden" type="button" data-cancel="f">Cancelar edição</button>
+      </form>
+      <p class="note">O consumo (km/l) é calculado entre dois abastecimentos de tanque cheio.</p>
+    </div>
+    <div class="card"><h2>Histórico</h2><ul class="list" id="fList"></ul></div>
+  </section>
+
+  <!-- MANUTENÇÃO -->
+  <section id="tab-manut" class="hidden">
+    <div class="card">
+      <h2 id="mTitle">Nova manutenção</h2>
+      <form id="mForm">
+        <input type="hidden" name="id">
+        <div class="row">
+          <div><label>Data</label><input type="date" name="data" required></div>
+          <div><label>Km no painel</label><input type="number" name="km" inputmode="numeric" min="0" required></div>
+        </div>
+        <label>Serviço</label>
+        <select name="servico" id="mServ" required></select>
+        <div id="mOutroBox" class="hidden"><label>Descreva o serviço</label><input type="text" name="outro"></div>
+        <div class="row">
+          <div><label>Custo (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
+          <div><label>Oficina (opcional)</label><input type="text" name="oficina"></div>
+        </div>
+        <label>Observações</label><textarea name="obs" placeholder="Peças, marca do óleo, etc."></textarea>
+        <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
+        <button class="btn" type="submit">Salvar manutenção</button>
+        <button class="btn sec hidden" type="button" data-cancel="m">Cancelar edição</button>
+      </form>
+    </div>
+    <div class="card"><h2>Histórico</h2><ul class="list" id="mList"></ul></div>
+  </section>
+
+  <!-- GASTOS -->
+  <section id="tab-gastos" class="hidden">
+    <div class="card">
+      <h2 id="gTitle">Novo gasto</h2>
+      <form id="gForm">
+        <input type="hidden" name="id">
+        <div class="row">
+          <div><label>Data</label><input type="date" name="data" required></div>
+          <div><label>Valor (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
+        </div>
+        <label>Categoria</label>
+        <select name="cat">
+          <option>IPVA / Licenciamento</option><option>Seguro</option><option>Multa</option>
+          <option>Estacionamento</option><option>Pedágio</option><option>Lavagem</option>
+          <option>Acessórios / Equipamento</option><option>Documentação</option><option>Outros</option>
+        </select>
+        <label>Descrição (opcional)</label><input type="text" name="desc">
+        <label>Foto do recibo (opcional)</label><input type="file" name="fotoArq" accept="image/*"><input type="hidden" name="foto"><div class="note fotoAtual"></div>
+        <button class="btn" type="submit">Salvar gasto</button>
+        <button class="btn sec hidden" type="button" data-cancel="g">Cancelar edição</button>
+      </form>
+    </div>
+    <div class="card"><h2>Histórico</h2><ul class="list" id="gList"></ul></div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="tab-ajustes" class="hidden">
+    <div class="card">
+      <h2>Moto</h2>
+      <label>Nome / modelo</label><input type="text" id="cfgNome">
+      <div class="row">
+        <div><label>Tanque (litros)</label><input type="number" id="cfgTanque" step="0.1" inputmode="decimal"></div>
+        <div><label>Km inicial</label><input type="number" id="cfgKm0" inputmode="numeric"></div>
+      </div>
+      <p class="note">Km inicial: o km da moto quando você começou a usar o app (usado no custo por km).</p>
+    </div>
+    <div class="card">
+      <h2>Intervalos de manutenção</h2>
+      <p class="note">Valores sugeridos para a Fazer 150, baseados em uso urbano comum. Confira no manual da sua moto. O lembrete vence pelo que chegar primeiro: km ou meses. Use 0 para não usar o critério.</p>
+      <div id="cfgInt"></div>
+      <button class="btn" id="cfgSalvar">Salvar ajustes</button>
+    </div>
+    <div class="card">
+      <h2>Planilha Google</h2>
+      <p class="note">Com a planilha conectada, tudo que você salvar aqui também é gravado nela. Se o celular der problema, os dados continuam na planilha.</p>
+      <label>URL do app da Web (Apps Script)</label><input type="url" id="syUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label>Senha (TOKEN do script)</label><input type="password" id="syTok" autocomplete="off">
+      <button class="btn" id="syConectar">Conectar</button>
+      <div id="syConectado" class="hidden">
+        <p class="note" id="syInfo"></p>
+        <button class="btn sec" id="syBaixar">Baixar dados da planilha</button>
+        <button class="btn sec" id="syEnviar">Enviar dados deste aparelho para a planilha</button>
+        <button class="btn danger" id="syDesconectar">Desconectar</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Backup</h2>
+      <p class="note">Os dados ficam salvos só neste navegador. Exporte um backup de vez em quando.</p>
+      <button class="btn sec" id="exp">Exportar JSON</button>
+      <button class="btn sec" id="impBtn">Importar JSON</button>
+      <input type="file" id="imp" accept="application/json,.json" class="hidden">
+      <button class="btn danger" id="zerar">Apagar todos os dados</button>
+    </div>
+  </section>
+</main>
+
+<nav id="nav">
+  <button data-tab="resumo" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>Resumo</button>
+  <button data-tab="analise"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17V9M13 17V5M18 17v-3"/></svg>Análise</button>
+  <button data-tab="abast"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/></svg>Abastecer</button>
+  <button data-tab="manut"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Manutenção</button>
+  <button data-tab="gastos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11"/></svg>Gastos</button>
+</nav>
+<div class="toast" id="toast"></div>
+<div id="relatorio"></div>
+
+<script>
+(() => {
+const KEY = 'motolog.v1';
+
+// Intervalos sugeridos (km) para Yamaha Fazer 150 — suposição, ajustável.
+const SERVICOS_PADRAO = [
+  { nome: 'Troca de óleo', km: 3000 },
+  { nome: 'Lubrificar / ajustar corrente', km: 500 },
+  { nome: 'Kit relação (corrente, coroa, pinhão)', km: 20000 },
+  { nome: 'Filtro de ar', km: 12000 },
+  { nome: 'Vela de ignição', km: 12000 },
+  { nome: 'Pastilhas de freio dianteiro', km: 10000 },
+  { nome: 'Lona / sapata freio traseiro', km: 15000 },
+  { nome: 'Fluido de freio', km: 20000 },
+  { nome: 'Pneu dianteiro', km: 20000 },
+  { nome: 'Pneu traseiro', km: 15000 },
+  { nome: 'Revisão geral', km: 6000 },
+  { nome: 'Bateria', km: 0 },
+  { nome: 'Outro', km: 0 },
+];
+
+// Prazos em meses (suposição, ajustável): vence pelo que chegar primeiro, km ou tempo.
+const MESES_PADRAO = { 'Troca de óleo':6, 'Lubrificar / ajustar corrente':1, 'Filtro de ar':12, 'Fluido de freio':24,
+  'Pneu dianteiro':60, 'Pneu traseiro':60, 'Revisão geral':12, 'Bateria':24 };
+
+const vazio = () => ({
+  versao: 1,
+  config: { nome: 'Yamaha Fazer 150', tanque: 15.7, km0: 0,
+            intervalos: Object.fromEntries(SERVICOS_PADRAO.map(s => [s.nome, s.km])),
+            meses: Object.fromEntries(SERVICOS_PADRAO.map(s => [s.nome, MESES_PADRAO[s.nome] || 0])) },
+  abastecimentos: [], manutencoes: [], gastos: []
+});
+
+let db;
+function load(){
+  try { db = JSON.parse(localStorage.getItem(KEY)) || vazio(); } catch { db = vazio(); }
+  const base = vazio();
+  db.config = Object.assign(base.config, db.config || {});
+  if (Number(db.config.tanque) === 12) db.config.tanque = 15.7; // padrão antigo (errado)
+  db.config.intervalos = Object.assign(base.config.intervalos, db.config.intervalos || {});
+  db.config.meses = Object.assign(base.config.meses, db.config.meses || {});
+  ['abastecimentos','manutencoes','gastos'].forEach(k => { if (!Array.isArray(db[k])) db[k] = []; });
+}
+function saveLocal(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch { toast('Não foi possível salvar neste navegador'); }
+}
+function save(){ saveLocal(); if (sync.url){ sync.pendente = true; saveSync(); agendarEnvio(); } }
+
+// ---------- sincronização com a planilha Google ----------
+const SKEY = 'motolog.sync';
+let sync = {};
+try { sync = JSON.parse(localStorage.getItem(SKEY)) || {}; } catch {}
+function saveSync(){ try { localStorage.setItem(SKEY, JSON.stringify(sync)); } catch {} }
+function status(txt, st){ const el = document.getElementById('syncSt'); if (!el) return; el.textContent = txt; el.parentElement.dataset.s = st || ''; }
+function statusAtual(){
+  if (!sync.url) return status('Salvo só neste aparelho · conecte a planilha em Ajustes');
+  status(sync.pendente ? 'Alterações ainda não enviadas à planilha' : 'Sincronizado com a planilha', sync.pendente ? 'warn' : 'ok');
+}
+const temDados = d => d && ((d.abastecimentos||[]).length + (d.manutencoes||[]).length + (d.gastos||[]).length) > 0;
+
+async function apiGet(){
+  const r = await fetch(sync.url + (sync.url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(sync.token));
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.erro || 'erro');
+  return j;
+}
+async function apiPost(baseRev){
+  // text/plain evita a verificação CORS prévia, que o Apps Script não aceita.
+  const r = await fetch(sync.url, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: sync.token, baseRev, db }) });
+  return r.json();
+}
+function adotar(remoto, rev){
+  const cfg = db.config;
+  db = remoto; if (!db.config) db.config = cfg;
+  saveLocal(); load(); sync.rev = rev; sync.pendente = false; saveSync(); init();
+}
+
+let envioTimer = null, enviando = false;
+function agendarEnvio(){ clearTimeout(envioTimer); envioTimer = setTimeout(enviar, 800); statusAtual(); }
+async function enviar(forcar){
+  if (!sync.url || enviando) return;
+  enviando = true; status('Enviando para a planilha…', 'warn');
+  try {
+    const j = await apiPost(forcar ? 'force' : (sync.rev || 0));
+    if (j.ok){ sync.rev = j.rev; sync.pendente = false; saveSync(); }
+    else if (j.erro === 'conflito'){
+      // A planilha mudou por outro aparelho: ela vence, para não apagar dados de lá.
+      adotar(j.db, j.rev);
+      toast('A planilha tinha dados mais novos. Confira sua última alteração.');
+    } else { toast('Planilha recusou: ' + j.erro); }
+    enviando = false; statusAtual(); return;
+  } catch { toast('Sem conexão. Envio pendente.'); }
+  enviando = false; status('Erro ao sincronizar · envio pendente', 'bad');
+}
+async function baixar(silencioso){
+  if (!sync.url) return;
+  status('Atualizando da planilha…', 'warn');
+  try {
+    const j = await apiGet();
+    if (sync.pendente && j.rev === (sync.rev || 0)) { await enviar(); return; }
+    adotar(j.db, j.rev);
+    if (!silencioso) toast('Dados baixados da planilha ✓');
+  } catch { if (!silencioso) toast('Não consegui acessar a planilha'); }
+  statusAtual();
+}
+window.addEventListener('online', () => { if (sync.pendente) enviar(); });
+
+// Reduz a foto (máx. 1600 px, JPEG) e envia para o Google Drive pelo Apps Script.
+async function comprimir(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((ok, erro) => { img.onload = ok; img.onerror = () => erro(new Error('imagem inválida')); img.src = url; });
+    const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.8).split(',')[1];
+  } finally { URL.revokeObjectURL(url); }
+}
+async function enviarFoto(file, nome){
+  const dados = await comprimir(file);
+  const r = await fetch(sync.url, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: sync.token, acao: 'foto', nome, mime: 'image/jpeg', dados }) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.erro === 'formato' ? 'reimplante o script novo' : (j.erro || 'erro'));
+  return j.url;
+}
+
+function renderSync(){
+  const on = !!sync.url;
+  document.getElementById('syUrl').value = sync.url || '';
+  document.getElementById('syTok').value = sync.token || '';
+  document.getElementById('syConectar').classList.toggle('hidden', on);
+  document.getElementById('syConectado').classList.toggle('hidden', !on);
+  ['syUrl','syTok'].forEach(i => document.getElementById(i).disabled = on);
+  document.getElementById('syInfo').textContent = on ? 'Conectado. Versão da planilha: ' + (sync.rev || 0) + '.' : '';
+  statusAtual();
+}
+
+// ---------- utilidades ----------
+const $ = s => document.querySelector(s);
+const brl = v => (Number(v)||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+const num = (v, d=0) => (Number(v)||0).toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
+const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ord = arr => [...arr].sort((a,b) => (b.data||'').localeCompare(a.data||'') || (b.km||0)-(a.km||0));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+
+function kmAtual(){
+  const kms = [...db.abastecimentos, ...db.manutencoes].map(x => Number(x.km)||0);
+  return Math.max(Number(db.config.km0)||0, ...kms, 0);
+}
+
+// Consumo entre tanques cheios. Retorna mapa id->km/l e média geral.
+function consumos(){
+  const lista = [...db.abastecimentos].sort((a,b) => a.km - b.km);
+  const map = {}, det = {}; let kmTot = 0, lTot = 0;
+  let ultimoCheio = null, litrosAcum = 0;
+  for (const a of lista){
+    if (ultimoCheio){
+      litrosAcum += Number(a.litros)||0;
+      if (a.cheio){
+        const dist = a.km - ultimoCheio.km;
+        if (dist > 0 && litrosAcum > 0){ map[a.id] = dist / litrosAcum; det[a.id] = { dist, litros: litrosAcum, de: ultimoCheio }; kmTot += dist; lTot += litrosAcum; }
+        ultimoCheio = a; litrosAcum = 0;
+      }
+    } else if (a.cheio){ ultimoCheio = a; litrosAcum = 0; }
+  }
+  return { map, det, media: lTot ? kmTot / lTot : null };
+}
+
+// ---------- navegação ----------
+function abrir(tab){
+  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-'+tab));
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  window.scrollTo(0,0);
+  try { sessionStorage.setItem('motolog.tab', tab); } catch {}
+}
+$('#nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) abrir(b.dataset.tab); });
+
+// ---------- render ----------
+function render(){
+  $('#hdrSub').textContent = db.config.nome || 'Minha moto';
+  const km = kmAtual(); const { map, media } = consumos();
+
+  // Resumo
+  $('#sKm').textContent = km ? num(km) + ' km' : '';
+  $('#hDate').textContent = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
+  $('#sCons').innerHTML = media ? num(media,1) + '<span>km/l</span>' : '–';
+  const mes = hoje().slice(0,7);
+  const todos = [
+    ...db.abastecimentos.map(x => ({...x, tipo:'f'})),
+    ...db.manutencoes.map(x => ({...x, tipo:'m'})),
+    ...db.gastos.map(x => ({...x, tipo:'g'})),
+  ];
+  const noMes = todos.filter(x => (x.data||'').startsWith(mes)).reduce((s,x) => s + (Number(x.valor)||0), 0);
+  $('#sMes').textContent = brl(noMes);
+  const d7 = new Date(); d7.setDate(d7.getDate() - 6); const ini7 = d7.toISOString().slice(0,10);
+  $('#sSem').textContent = brl(todos.filter(x => (x.data||'') >= ini7).reduce((s,x) => s + (Number(x.valor)||0), 0));
+  // Tanque
+  const tq = Number(db.config.tanque) || 0;
+  $('#sTanque').textContent = tq ? num(tq, tq % 1 ? 1 : 0) + ' L' : '–';
+  $('#sAut').textContent = (tq && media) ? num(tq * media) + ' km' : '–';
+  const fills = [...db.abastecimentos].sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  let porDia = null;
+  if (fills.length > 1){
+    const dias = (new Date(hoje()) - new Date(fills[0].data)) / 864e5;
+    if (dias > 0) porDia = fills.reduce((s,x) => s + (+x.valor||0), 0) / dias;
+  }
+  $('#sDia').textContent = porDia != null ? brl(porDia) : '–';
+  $('#tankNote').textContent = `Estimativa com tanque cheio (${num(tq,1)} L) e consumo médio atual. Custo por dia: combustível desde o primeiro abastecimento.`;
+  // Gráfico
+  const pts = Object.entries(map).map(([id,v]) => ({ v, km: (db.abastecimentos.find(a => a.id === id)||{}).km || 0 })).sort((a,b) => a.km - b.km).slice(-30);
+  const ch = $('#chart');
+  if (pts.length >= 2){
+    const vs = pts.map(p => p.v), mn = Math.min(...vs), mx = Math.max(...vs), W = 300, H = 120, pad = 6;
+    const X = i => i / (pts.length - 1) * W, Y = v => pad + (mx === mn ? .5 : (mx - v) / (mx - mn)) * (H - 2*pad);
+    const line = pts.map((p,i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ');
+    ch.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Consumo por abastecimento"><defs><linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22c3d6" stop-opacity=".35"/><stop offset="1" stop-color="#22c3d6" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${W} ${H} L0 ${H} Z" fill="url(#ca)" stroke="none"/><path d="${line}" fill="none" stroke="#22c3d6" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+      <span class="last" style="left:100%;top:${(Y(vs[vs.length-1]) / H * 100).toFixed(1)}%"></span>`;
+    $('#cMin').textContent = num(mn,1) + ' km/l'; $('#cMax').textContent = num(mx,1) + ' km/l';
+  } else { ch.innerHTML = '<div class="empty">Registre pelo menos 3 abastecimentos de tanque cheio.</div>'; $('#cMin').textContent = $('#cMax').textContent = ''; }
+  const tF = db.abastecimentos.reduce((s,x)=>s+(+x.valor||0),0);
+  const tM = db.manutencoes.reduce((s,x)=>s+(+x.valor||0),0);
+  const tG = db.gastos.reduce((s,x)=>s+(+x.valor||0),0);
+  const tot = tF + tM + tG;
+  const kmRodado = km - (Number(db.config.km0)||0);
+  // custo por km sem IPVA/seguro distorcer? Usa tudo — mais honesto para "quanto a moto custa".
+  $('#sCkm').textContent = (kmRodado > 0 && tot > 0) ? brl(tot / kmRodado) : '–';
+
+  const barra = (rot, v, cor) => `<div style="margin:4px 0 14px"><div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:8px"><i style="width:8px;height:8px;border-radius:50%;background:${cor}"></i>${rot}</span><b>${brl(v)}</b></div><div class="bar"><i style="width:${tot? (v/tot*100).toFixed(1):0}%;background:${cor}"></i></div></div>`;
+  $('#totais').innerHTML = tot ? barra('Combustível', tF, 'var(--fuel)') + barra('Manutenção', tM, 'var(--maint)') + barra('Outros gastos', tG, 'var(--other)') +
+    `<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><span>Total</span><b>${brl(tot)}</b></div>`
+    : '<div class="empty">Nenhum gasto registrado ainda.</div>';
+
+  // Saúde da moto (km e tempo: vence o que chegar primeiro)
+  const saude = [], semReg = [];
+  const nomesSv = new Set([...Object.keys(db.config.intervalos), ...Object.keys(db.config.meses)]);
+  for (const nome of nomesSv){
+    const intv = Number(db.config.intervalos[nome]) || 0, meses = Number(db.config.meses[nome]) || 0;
+    if ((!intv && !meses) || nome === 'Outro') continue;
+    const feitas = db.manutencoes.filter(m => m.servico === nome).sort((a,b) => b.km - a.km || (b.data||'').localeCompare(a.data||''));
+    if (!feitas.length){ semReg.push(nome); continue; }
+    const u = feitas[0];
+    const kmFr = intv ? (km - u.km) / intv : -1;
+    const lim = meses ? addMeses(dt(u.data), meses) : null;
+    const dtFr = meses ? mesesEntre(dt(u.data), new Date()) / meses : -1;
+    saude.push({ nome, intv, meses, u, kmFr, dtFr, fr: Math.max(kmFr, dtFr), porKm: kmFr >= dtFr,
+                 falta: intv ? u.km + intv - km : null, dias: lim ? Math.round((lim - new Date()) / 864e5) : null, lim });
+  }
+  saude.sort((a,b) => b.fr - a.fr);
+  $('#saude').innerHTML = saude.length ? saude.map(h => {
+    let cor, txt;
+    if (h.fr >= 1){ cor = 'var(--bad)'; txt = h.porKm ? `Atrasada em ${num(-h.falta)} km` : `Venceu em ${h.lim.toLocaleDateString('pt-BR')}`; }
+    else if (h.fr >= .85){ cor = 'var(--warn)'; txt = h.porKm ? `Trocar em breve · ${num(h.falta)} km` : `Trocar em breve · ${h.dias} dias`; }
+    else { cor = 'var(--ok)'; txt = h.porKm ? `Faltam ${num(h.falta)} km` : `Faltam ${h.dias} dias`; }
+    const iv = [h.intv ? `${num(h.intv)} km` : '', h.meses ? `${h.meses} ${h.meses > 1 ? 'meses' : 'mês'}` : ''].filter(Boolean).join(' ou ');
+    return `<div class="hp"><div class="top"><b>${esc(h.nome)}</b><span style="color:${cor}">${txt}</span></div>
+      <div class="bar"><i style="width:${Math.min(100, Math.max(2, h.fr*100)).toFixed(1)}%;background:${cor}"></i></div>
+      <em>a cada ${iv} · última em ${dataBR(h.u.data)} com ${num(h.u.km)} km</em></div>`;
+  }).join('') + (semReg.length ? `<p class="note">Sem registro ainda: ${semReg.map(esc).join(', ')}.</p>` : '')
+    : '<div class="empty">Registre uma manutenção (ex.: troca de óleo) para acompanhar a saúde da moto.</div>';
+
+  // Alerta de consumo
+  const al = alertaConsumo(map);
+  $('#alerta').innerHTML = al ? `<div class="alerta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Consumo abaixo do normal</b><p>O último tanque fez ${num(al.v,1)} km/l, ${num(al.queda)}% abaixo do seu normal (${num(al.med,1)} km/l). Pode ser pneu murcho, corrente seca ou esticada, filtro de ar sujo, vela gasta, combustível ruim ou só um erro no km digitado.</p></div></div>` : '';
+
+  // Postos (sugestões no formulário)
+  const nomesPostos = [...new Set(db.abastecimentos.map(a => (a.posto||'').trim()).filter(Boolean))].sort();
+  $('#postosList').innerHTML = nomesPostos.map(n => `<option value="${esc(n)}">`).join('');
+
+  renderAnalise(km);
+
+  // Últimos
+  const ult = ord(todos).slice(0,5);
+  $('#ultimos').innerHTML = ult.length ? ult.map(x => item(x)).join('') : '<li class="empty" style="display:block">Nada por aqui ainda.</li>';
+
+  // Listas
+  $('#fList').innerHTML = db.abastecimentos.length ? ord(db.abastecimentos).map(a => item({...a, tipo:'f'}, map[a.id], true)).join('') : '<li class="empty" style="display:block">Nenhum abastecimento.</li>';
+  $('#mList').innerHTML = db.manutencoes.length ? ord(db.manutencoes).map(m => item({...m, tipo:'m'}, null, true)).join('') : '<li class="empty" style="display:block">Nenhuma manutenção.</li>';
+  $('#gList').innerHTML = db.gastos.length ? ord(db.gastos).map(g => item({...g, tipo:'g'}, null, true)).join('') : '<li class="empty" style="display:block">Nenhum gasto.</li>';
+}
+
+// ---------- datas ----------
+const dt = iso => new Date(iso + 'T12:00:00');
+const mesesEntre = (a,b) => (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth()) + (b.getDate()-a.getDate())/30;
+const addMeses = (d,m) => { const x = new Date(d); x.setMonth(x.getMonth()+m); return x; };
+const ymKey = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+const pctI = (a,b) => b ? Math.round(a/b*100) : 0;
+const nomeMes = k => { const [a,m] = k.split('-'); return new Date(a, m-1).toLocaleDateString('pt-BR', { month:'short' }).replace('.',''); };
+
+// ---------- alerta de consumo ----------
+function alertaConsumo(map){
+  const pts = Object.entries(map).map(([id,v]) => ({ id, v, km: (db.abastecimentos.find(a => a.id === id)||{}).km || 0 })).sort((a,b) => a.km - b.km);
+  if (pts.length < 5) return null;
+  const ult = pts[pts.length-1], ant = pts.slice(-11, -1).map(p => p.v).sort((a,b) => a-b);
+  const med = ant.length % 2 ? ant[(ant.length-1)/2] : (ant[ant.length/2-1] + ant[ant.length/2]) / 2;
+  if (ult.v >= med * 0.85) return null;
+  return { id: ult.id, v: ult.v, med, queda: Math.round((1 - ult.v/med) * 100) };
+}
+
+// ---------- análise (antigo painel) ----------
+let per = 12;
+const GRUPO = { f:'fuel', m:'maint', g:'other' };
+function registros(){
+  return [
+    ...db.abastecimentos.map(a => ({ tipo:'f', data:a.data, km:+a.km||0, valor:+a.valor||0, cat:'Combustível' })),
+    ...db.manutencoes.map(m => ({ tipo:'m', data:m.data, km:+m.km||0, valor:+m.valor||0, cat: m.servico === 'Outro' ? (m.outro || 'Outro') : m.servico })),
+    ...db.gastos.map(g => ({ tipo:'g', data:g.data, km:0, valor:+g.valor||0, cat: g.cat || 'Outros' })),
+  ].filter(r => r.data).sort((a,b) => a.data < b.data ? -1 : 1);
+}
+function renderAnalise(kmAt){
+  const regs = registros(), agora = new Date();
+  const ini = per ? addMeses(new Date(agora.getFullYear(), agora.getMonth(), 1), -(per-1)) : null;
+  const noPer = regs.filter(r => !ini || dt(r.data) >= ini);
+  const total = noPer.reduce((s,r) => s + r.valor, 0);
+  const kmsP = noPer.map(r => r.km).filter(Boolean);
+  const rodado = kmsP.length > 1 ? Math.max(...kmsP) - Math.min(...kmsP) : 0;
+  const totComb = noPer.filter(r => r.tipo === 'f').reduce((s,r) => s + r.valor, 0);
+  const nMeses = per || Math.max(1, Math.ceil(regs.length ? mesesEntre(dt(regs[0].data), agora) : 1));
+  const media = total / nMeses;
+  const S = (k,l,v,sub,c) => `<div class="stat" style="--c:${c}"><small><svg viewBox="0 0 24 24">${k}</svg>${l}</small><b>${v}</b><em>${sub}</em></div>`;
+  $('#kpis').innerHTML =
+    S('<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 18V6"/>','Total',brl(total),per?`últimos ${per} meses`:'desde o início','var(--teal)') +
+    S('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>','Média mensal',brl(media),'gasto por mês','var(--accent)') +
+    S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>','Custo / km',rodado?brl(total/rodado):'–','tudo incluído','#f97316') +
+    S('<path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/>','Combust. / km',rodado?brl(totComb/rodado):'–',rodado?`${num(rodado)} km rodados`:'sem km suficiente','var(--teal)');
+
+  // Este mês x média
+  const mesAt = ymKey(agora);
+  const gastoMes = regs.filter(r => r.data.slice(0,7) === mesAt).reduce((s,r) => s + r.valor, 0);
+  const diasMes = new Date(agora.getFullYear(), agora.getMonth()+1, 0).getDate();
+  const proj = gastoMes / agora.getDate() * diasMes;
+  const ref = media || gastoMes || 1, frac = Math.min(1, gastoMes / (ref * 1.5));
+  const arc = 'M20 85 A46 46 0 1 1 100 85';
+  $('#aGauge').innerHTML = `<div class="tank"><div class="g"><svg viewBox="0 0 120 100" role="img" aria-label="Gasto deste mês comparado à média"><defs><linearGradient id="gg2" x1="0" x2="1"><stop offset="0" stop-color="#f97316"/><stop offset=".55" stop-color="#fbbf24"/><stop offset="1" stop-color="#22c3d6"/></linearGradient></defs>
+    <path d="${arc}" fill="none" stroke="var(--card2)" stroke-width="12" stroke-linecap="round"/>
+    <path d="${arc}" fill="none" stroke="url(#gg2)" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="${Math.max(.5, frac*100).toFixed(1)} 100"/></svg><b>${pctI(gastoMes, ref)}%<br><span style="font-size:.62rem;font-weight:600;color:var(--muted)">da média</span></b></div>
+    <div><small>Gasto até agora</small><span class="v">${brl(gastoMes)}</span><small>Projeção do mês</small><span class="v" style="margin-bottom:0">${brl(proj)}</span></div></div>
+    <p class="note sep">Comparado à média mensal de ${brl(media)} no período. O arco cheio equivale a 1,5× a média. A projeção segue o ritmo de gastos até hoje.</p>`;
+
+  // Meses
+  const pm = {}; const mk = k => pm[k] = pm[k] || { fuel:0, maint:0, other:0 };
+  if (ini) for (let i = 0; i < per; i++) mk(ymKey(addMeses(ini, i)));
+  noPer.forEach(r => { mk(r.data.slice(0,7))[GRUPO[r.tipo]] += r.valor; });
+  let meses = Object.keys(pm).sort(); if (meses.length > 12) meses = meses.slice(-12);
+  const tm = k => pm[k].fuel + pm[k].maint + pm[k].other;
+
+  // Custo por km mês a mês
+  const kmAte = k => { let x = 0; for (const r of regs) if (r.data.slice(0,7) <= k && r.km > x) x = r.km; return x; };
+  const pts = meses.map(k => { const [a,m] = k.split('-'); const prev = ymKey(new Date(a, m-2, 1)); const kmMes = kmAte(prev) ? kmAte(k) - kmAte(prev) : 0; return { k, v: kmMes > 0 ? tm(k)/kmMes : null }; }).filter(p => p.v !== null);
+  const L = $('#aLinha');
+  if (pts.length < 2) L.innerHTML = '<div class="empty">Precisa de pelo menos dois meses com km registrado.</div>';
+  else {
+    const W = 300, H = 120, P = 6, vs = pts.map(p => p.v), mn = Math.min(...vs), mx = Math.max(...vs), rg = (mx - mn) || 1;
+    const X = i => i / (pts.length-1) * W, Y = v => P + (mx === mn ? .5 : (mx - v) / rg) * (H - 2*P);
+    const d = pts.map((p,i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ');
+    L.innerHTML = `<div class="chart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Custo por km em cada mês"><defs><linearGradient id="ca2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22c3d6" stop-opacity=".35"/><stop offset="1" stop-color="#22c3d6" stop-opacity="0"/></linearGradient></defs>
+      <path d="${d} L${W} ${H} L0 ${H} Z" fill="url(#ca2)" stroke="none"/><path d="${d}" fill="none" stroke="#22c3d6" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>
+      <span class="last" style="left:100%;top:${(Y(vs[vs.length-1])/H*100).toFixed(1)}%"></span></div>
+      <div class="axis"><span>mín ${brl(mn)}/km</span><span>${nomeMes(pts[0].k)} → ${nomeMes(pts[pts.length-1].k)}</span><span>máx ${brl(mx)}/km</span></div>`;
+  }
+
+  // Colunas por mês
+  const maxM = Math.max(0, ...meses.map(tm));
+  $('#aMes').innerHTML = !maxM ? '<div class="empty">Sem gastos no período.</div>' : `<div class="cols">${meses.map(k => `<div class="c${k === mesAt ? ' on' : ''}" title="${nomeMes(k)}/${k.slice(2,4)}: ${brl(tm(k))}"><div class="stk">${['fuel','maint','other'].map(g => `<i style="height:${pm[k][g]/maxM*100}%;background:var(--${g})"></i>`).join('')}<div style="flex:1"></div></div><span>${nomeMes(k)}</span></div>`).join('')}</div>
+    <div class="leg"><span><i style="background:var(--fuel)"></i>Combustível</span><span><i style="background:var(--maint)"></i>Manutenção</span><span><i style="background:var(--other)"></i>Outros</span><span style="margin-left:auto">maior mês ${brl(maxM)}</span></div>`;
+
+  // Categorias
+  const pc = {}; noPer.forEach(r => { (pc[r.cat] = pc[r.cat] || { v:0, g:GRUPO[r.tipo] }).v += r.valor; });
+  const ce = Object.entries(pc).filter(e => e[1].v > 0).sort((a,b) => b[1].v - a[1].v), maxC = ce.length ? ce[0][1].v : 0;
+  $('#aCat').innerHTML = !ce.length ? '<div class="empty">Sem gastos no período.</div>' : ce.map(([c,o]) => `<div class="hp"><div class="top"><b style="display:flex;align-items:center;gap:8px"><i style="width:8px;height:8px;border-radius:50%;background:var(--${o.g});flex:none"></i>${esc(c)}</b><span>${brl(o.v)} <span style="color:var(--muted);font-weight:500">· ${pctI(o.v, total)}%</span></span></div><div class="bar"><i style="width:${Math.max(2, o.v/maxC*100).toFixed(1)}%;background:var(--${o.g})"></i></div></div>`).join('');
+
+  // Postos
+  renderPostos();
+
+  // Anos do relatório
+  const anos = [...new Set(regs.map(r => r.data.slice(0,4)))].sort().reverse();
+  const sel = $('#relAno'), atual = sel.value;
+  sel.innerHTML = (anos.length ? anos : [String(agora.getFullYear())]).map(a => `<option>${a}</option>`).join('');
+  if (atual && anos.includes(atual)) sel.value = atual;
+}
+
+// Comparar postos: o consumo de um tanque é atribuído ao posto onde ele foi enchido.
+function renderPostos(){
+  const { det } = consumos();
+  const P = {}; const chave = n => (n||'').trim().toLowerCase();
+  const get = n => { const k = chave(n) || '__sem'; return P[k] = P[k] || { nome: (n||'').trim() || 'Sem posto informado', n:0, litros:0, valor:0, dist:0, lc:0, ult:'' }; };
+  db.abastecimentos.forEach(a => { const o = get(a.posto); o.n++; o.litros += +a.litros||0; o.valor += +a.valor||0; if ((a.data||'') > o.ult) o.ult = a.data; });
+  Object.values(det).forEach(d => { const o = get(d.de.posto); o.dist += d.dist; o.lc += d.litros; });
+  const lista = Object.entries(P).map(([k,o]) => ({ ...o, k, ppl: o.litros ? o.valor/o.litros : 0, kml: o.lc ? o.dist/o.lc : null }))
+    .map(o => ({ ...o, cpk: o.kml ? o.ppl / o.kml : null }))
+    .sort((a,b) => (a.cpk ?? 99) - (b.cpk ?? 99));
+  const comNome = lista.filter(o => o.k !== '__sem');
+  const el = $('#aPostos');
+  if (!comNome.length){ el.innerHTML = '<div class="empty">Preencha o campo "Posto" ao abastecer para comparar preço e rendimento entre postos.</div>'; return; }
+  const melhor = lista.find(o => o.cpk && o.k !== '__sem');
+  el.innerHTML = `<div class="pt"><span class="hh">Posto</span><span class="hh">R$/L</span><span class="hh">km/l</span><span class="hh">R$/km</span>
+    ${lista.map(o => `<div class="nm">${esc(o.nome)}<small>${melhor && o.k === melhor.k ? '<span style="color:var(--ok);font-weight:700">rende mais</span> · ' : ''}${o.n} abastecimento${o.n>1?'s':''}${o.ult ? ' · último ' + dataBR(o.ult) : ''}</small></div>
+      <div class="n">${o.ppl ? brl(o.ppl) : '–'}</div><div class="n">${o.kml ? num(o.kml,1) : '–'}</div><div class="n" style="color:${melhor && o.k === melhor.k ? 'var(--ok)' : 'inherit'}">${o.cpk ? brl(o.cpk) : '–'}</div>`).join('')}</div>
+    <p class="note">R$/km = preço por litro ÷ km/l. É o número que diz qual posto sai mais barato de verdade. O consumo de cada tanque conta para o posto onde ele foi enchido, e só tanques cheios entram na conta.</p>`;
+}
+
+// ---------- relatório anual (PDF pela impressão do navegador) ----------
+function gerarRelatorio(ano){
+  const noAno = x => (x.data||'').startsWith(ano);
+  const A = db.abastecimentos.filter(noAno).sort((a,b) => a.km - b.km);
+  const M = db.manutencoes.filter(noAno).sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  const G = db.gastos.filter(noAno).sort((a,b) => (a.data||'').localeCompare(b.data||''));
+  const soma = arr => arr.reduce((s,x) => s + (+x.valor||0), 0);
+  const tF = soma(A), tM = soma(M), tG = soma(G), tot = tF + tM + tG;
+  const kms = [...A, ...M].map(x => +x.km).filter(Boolean);
+  const antes = [...db.abastecimentos, ...db.manutencoes].filter(x => (x.data||'') < ano).map(x => +x.km).filter(Boolean);
+  const kmsF = A.map(a => +a.km).filter(Boolean);
+  const kmIni = antes.length ? Math.max(...antes) : (kmsF.length ? Math.min(...kmsF) : (kms.length ? Math.min(...kms) : 0)), kmFim = kms.length ? Math.max(...kms) : kmIni;
+  const rod = Math.max(0, kmFim - kmIni);
+  const { det } = consumos(); let dist = 0, lc = 0;
+  A.forEach(a => { if (det[a.id]) { dist += det[a.id].dist; lc += det[a.id].litros; } });
+  const litros = A.reduce((s,a) => s + (+a.litros||0), 0);
+  const mesesT = Array.from({ length: 12 }, (_, i) => `${ano}-${String(i+1).padStart(2,'0')}`).map(k => {
+    const f = soma(A.filter(x => x.data.startsWith(k))), m = soma(M.filter(x => x.data.startsWith(k))), g = soma(G.filter(x => x.data.startsWith(k)));
+    return { k, f, m, g, t: f + m + g };
+  });
+  const lnk = x => x.foto ? `<a href="${esc(x.foto)}">ver</a>` : '';
+  const K = (l,v) => `<div><small>${l}</small><b>${v}</b></div>`;
+  $('#relatorio').innerHTML = `
+    <h1>Relatório Motolog ${ano}</h1>
+    <p class="sub">${esc(db.config.nome || 'Moto')} · gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+    <div class="kpi">${K('Km no início', num(kmIni))}${K('Km no fim', num(kmFim))}${K('Km rodados', num(rod))}${K('Consumo médio', lc ? num(dist/lc,1) + ' km/l' : '–')}
+      ${K('Gasto total', brl(tot))}${K('Combustível', brl(tF))}${K('Manutenção', brl(tM))}${K('Custo por km', rod ? brl(tot/rod) : '–')}</div>
+    <h2>Gastos por mês</h2>
+    <table><tr><th>Mês</th><th class="r">Combustível</th><th class="r">Manutenção</th><th class="r">Outros</th><th class="r">Total</th></tr>
+      ${mesesT.map(r => `<tr><td>${nomeMes(r.k)}</td><td class="r">${brl(r.f)}</td><td class="r">${brl(r.m)}</td><td class="r">${brl(r.g)}</td><td class="r"><b>${brl(r.t)}</b></td></tr>`).join('')}
+      <tr><th>Total</th><th class="r">${brl(tF)}</th><th class="r">${brl(tM)}</th><th class="r">${brl(tG)}</th><th class="r">${brl(tot)}</th></tr></table>
+    <h2>Manutenções (${M.length})</h2>
+    ${M.length ? `<table><tr><th>Data</th><th class="r">Km</th><th>Serviço</th><th>Oficina / obs.</th><th class="r">Valor</th><th>Recibo</th></tr>
+      ${M.map(m => `<tr><td>${dataBR(m.data)}</td><td class="r">${num(m.km)}</td><td>${esc(m.servico === 'Outro' && m.outro ? m.outro : m.servico)}</td><td>${esc([m.oficina, m.obs].filter(Boolean).join(' · '))}</td><td class="r">${brl(m.valor)}</td><td>${lnk(m)}</td></tr>`).join('')}</table>` : '<p>Nenhuma manutenção registrada no ano.</p>'}
+    ${G.length ? `<h2>Outros gastos (${G.length})</h2><table><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th class="r">Valor</th><th>Recibo</th></tr>
+      ${G.map(g => `<tr><td>${dataBR(g.data)}</td><td>${esc(g.cat)}</td><td>${esc(g.desc)}</td><td class="r">${brl(g.valor)}</td><td>${lnk(g)}</td></tr>`).join('')}</table>` : ''}
+    <h2>Abastecimentos (${A.length} · ${num(litros,1)} L)</h2>
+    ${A.length ? `<table><tr><th>Data</th><th class="r">Km</th><th class="r">Litros</th><th class="r">R$/L</th><th class="r">Valor</th><th class="r">km/l</th><th>Posto</th></tr>
+      ${A.map(a => `<tr><td>${dataBR(a.data)}</td><td class="r">${num(a.km)}</td><td class="r">${num(a.litros,2)}</td><td class="r">${brl(a.valor/(a.litros||1))}</td><td class="r">${brl(a.valor)}</td><td class="r">${det[a.id] ? num(det[a.id].dist/det[a.id].litros,1) : ''}</td><td>${esc(a.posto)}</td></tr>`).join('')}</table>` : '<p>Nenhum abastecimento no ano.</p>'}`;
+  document.body.classList.add('imprimindo');
+  const fim = () => document.body.classList.remove('imprimindo');
+  window.addEventListener('afterprint', fim, { once: true });
+  setTimeout(() => { window.print(); }, 50);
+}
+
+const ICO = {'f': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 22h12M4 9h10M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5"/></svg>', 'm': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>', 'g': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11"/></svg>', 'edit': '<svg viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>', 'del': '<svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>'};
+function item(x, kml, acoes){
+  let cor, t, s;
+  if (x.tipo === 'f'){
+    cor = 'var(--fuel)';
+    t = `${num(x.litros,2)} L` + (kml ? ` <span class="tag">${num(kml,1)} km/l</span>` : '') + (x.cheio ? '' : ' <span class="tag">parcial</span>');
+    s = `${dataBR(x.data)} · ${num(x.km)} km · ${brl(x.valor/(x.litros||1))}/L${x.posto ? ' · '+esc(x.posto) : ''}`;
+  } else if (x.tipo === 'm'){
+    cor = 'var(--maint)';
+    t = esc(x.servico === 'Outro' && x.outro ? x.outro : x.servico);
+    s = `${dataBR(x.data)} · ${num(x.km)} km${x.oficina ? ' · '+esc(x.oficina) : ''}${x.obs ? '<br>'+esc(x.obs) : ''}`;
+  } else {
+    cor = 'var(--other)';
+    t = esc(x.cat);
+    s = `${dataBR(x.data)}${x.desc ? ' · '+esc(x.desc) : ''}`;
+  }
+  const rec = x.foto ? `<br><a class="recibo" href="${esc(x.foto)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>recibo</a>` : '';
+  s += rec;
+  const btns = acoes ? `<button class="mini" data-edit="${x.tipo}:${x.id}" aria-label="Editar">${ICO.edit}</button><button class="mini" data-del="${x.tipo}:${x.id}" aria-label="Excluir">${ICO.del}</button>` : '';
+  return `<li><span class="ico" style="--c:${cor}">${ICO[x.tipo]}</span><div class="grow"><div class="t">${t}</div><div class="s">${s}</div></div><div style="text-align:right"><div class="amt">${brl(x.valor)}</div>${btns ? `<div class="acts">${btns}</div>` : ''}</div></li>`;
+}
+
+// ---------- formulários ----------
+const colecao = { f:'abastecimentos', m:'manutencoes', g:'gastos' };
+const forms = { f:$('#fForm'), m:$('#mForm'), g:$('#gForm') };
+const titulos = { f:['#fTitle','Novo abastecimento','Editar abastecimento'], m:['#mTitle','Nova manutenção','Editar manutenção'], g:['#gTitle','Novo gasto','Editar gasto'] };
+
+function preencherServicos(){
+  const nomes = Object.keys(db.config.intervalos);
+  $('#mServ').innerHTML = nomes.map(n => `<option>${esc(n)}</option>`).join('');
+}
+
+function resetForm(t){
+  const f = forms[t]; f.reset(); f.id.value = '';
+  f.data.value = hoje();
+  if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + kmAtual() : '';
+  if (f.km && t === 'm') f.km.value = kmAtual() || '';
+  if (t === 'f'){ f.cheio.checked = true; f.ppl.value = ''; }
+  if (t === 'm') $('#mOutroBox').classList.add('hidden');
+  f.foto.value = ''; f.querySelector('.fotoAtual').textContent = '';
+  $(titulos[t][0]).textContent = titulos[t][1];
+  f.querySelector('[data-cancel]').classList.add('hidden');
+}
+
+function lerForm(f){
+  const o = {};
+  for (const el of f.elements){
+    if (!el.name || el.name === 'ppl' || el.type === 'file') continue;
+    o[el.name] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value.trim();
+  }
+  return o;
+}
+
+for (const [t, f] of Object.entries(forms)){
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const o = lerForm(f);
+    if (t === 'm' && o.servico === 'Outro' && !o.outro){ toast('Descreva o serviço'); return; }
+    if (t === 'f' && !o.litros){ toast('Informe os litros'); return; }
+    const arq = f.fotoArq.files[0], btn = f.querySelector('button[type=submit]');
+    if (!o.id) o.id = uid();
+    if (arq){
+      if (!sync.url) toast('Recibo não guardado: conecte a planilha em Ajustes para salvar fotos no Drive.');
+      else {
+        btn.disabled = true; const txt = btn.textContent; btn.textContent = 'Enviando foto…';
+        try { o.foto = await enviarFoto(arq, `${o.data}_${colecao[t]}_${o.id}.jpg`); }
+        catch (err) { toast('Não consegui enviar a foto (' + err.message + '). O registro foi salvo sem ela.'); }
+        btn.disabled = false; btn.textContent = txt;
+      }
+    }
+    const arr = db[colecao[t]];
+    const i = arr.findIndex(x => x.id === o.id);
+    if (i >= 0) arr[i] = o; else arr.push(o);
+    save(); resetForm(t); render();
+    const al = t === 'f' ? alertaConsumo(consumos().map) : null;
+    if (al && al.id === o.id) toast(`Salvo. Atenção: consumo ${al.queda}% abaixo do normal.`); else toast('Salvo ✓');
+  });
+  f.querySelector('[data-cancel]').addEventListener('click', () => resetForm(t));
+}
+
+// preço por litro ao vivo
+const ff = forms.f;
+const atualizaPpl = () => { const l = +ff.litros.value, v = +ff.valor.value; ff.ppl.value = (l && v) ? brl(v/l) : ''; };
+ff.litros.addEventListener('input', atualizaPpl); ff.valor.addEventListener('input', atualizaPpl);
+$('#mServ').addEventListener('change', e => $('#mOutroBox').classList.toggle('hidden', e.target.value !== 'Outro'));
+
+// editar / excluir
+document.addEventListener('click', e => {
+  const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
+  if (!ed && !dl) return;
+  const [t, id] = (ed || dl).dataset[ed ? 'edit' : 'del'].split(':');
+  const arr = db[colecao[t]]; const reg = arr.find(x => x.id === id); if (!reg) return;
+  if (dl){
+    if (!confirm('Excluir este registro?')) return;
+    db[colecao[t]] = arr.filter(x => x.id !== id); save(); render(); toast('Excluído');
+    return;
+  }
+  const f = forms[t];
+  if (t === 'm' && !db.config.intervalos.hasOwnProperty(reg.servico)) { db.config.intervalos[reg.servico] = 0; preencherServicos(); }
+  for (const el of f.elements){
+    if (!el.name || !(el.name in reg)) continue;
+    if (el.type === 'checkbox') el.checked = !!reg[el.name]; else el.value = reg[el.name] ?? '';
+  }
+  if (t === 'f') atualizaPpl();
+  f.querySelector('.fotoAtual').innerHTML = reg.foto ? `Recibo já anexado (<a class="recibo" href="${esc(reg.foto)}" target="_blank" rel="noopener">ver</a>). Escolha outra foto para trocar.` : '';
+  if (t === 'm') $('#mOutroBox').classList.toggle('hidden', reg.servico !== 'Outro');
+  $(titulos[t][0]).textContent = titulos[t][2];
+  f.querySelector('[data-cancel]').classList.remove('hidden');
+  abrir({f:'abast', m:'manut', g:'gastos'}[t]);
+});
+
+// ---------- ajustes ----------
+function renderCfg(){
+  $('#cfgNome').value = db.config.nome; $('#cfgTanque').value = db.config.tanque; $('#cfgKm0').value = db.config.km0;
+  $('#cfgInt').innerHTML = '<div class="cfg"><span class="hh">Item</span><span class="hh">Km</span><span class="hh">Meses</span>' +
+    Object.entries(db.config.intervalos).filter(([n]) => n !== 'Outro').map(([n, v]) =>
+    `<span>${esc(n)}</span><input type="number" inputmode="numeric" min="0" data-int="${esc(n)}" value="${v}" aria-label="Intervalo em km"><input type="number" inputmode="numeric" min="0" data-mes="${esc(n)}" value="${db.config.meses[n] || 0}" aria-label="Prazo em meses">`
+  ).join('') + '</div>';
+}
+$('#cfgSalvar').addEventListener('click', () => {
+  db.config.nome = $('#cfgNome').value.trim() || 'Minha moto';
+  db.config.tanque = Number($('#cfgTanque').value) || 0;
+  db.config.km0 = Number($('#cfgKm0').value) || 0;
+  document.querySelectorAll('[data-int]').forEach(i => db.config.intervalos[i.dataset.int] = Number(i.value) || 0);
+  document.querySelectorAll('[data-mes]').forEach(i => db.config.meses[i.dataset.mes] = Number(i.value) || 0);
+  save(); render(); toast('Ajustes salvos ✓');
+});
+
+// ---------- backup ----------
+$('#exp').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `motolog-backup-${hoje()}.json`; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  toast('Backup exportado');
+});
+$('#impBtn').addEventListener('click', () => $('#imp').click());
+$('#imp').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  try {
+    const dados = JSON.parse(await file.text());
+    if (!dados || !Array.isArray(dados.abastecimentos) || !Array.isArray(dados.manutencoes)) throw new Error();
+    const n = dados.abastecimentos.length + dados.manutencoes.length + (dados.gastos||[]).length;
+    if (!confirm(`Importar ${n} registros? Isso substitui os dados atuais.`)) return;
+    localStorage.setItem(KEY, JSON.stringify(dados)); load(); save(); init(); toast('Dados importados ✓');
+  } catch { toast('Arquivo inválido'); }
+});
+$('#zerar').addEventListener('click', () => {
+  const msg = sync.url ? 'Apagar os dados DESTE APARELHO e desconectar da planilha? A planilha não é alterada.'
+                       : 'Apagar TODOS os dados? Exporte um backup antes.';
+  if (!confirm(msg)) return;
+  sync = {}; saveSync(); db = vazio(); saveLocal(); init(); toast('Dados apagados');
+});
+
+document.getElementById('syConectar').addEventListener('click', async () => {
+  const url = document.getElementById('syUrl').value.trim(), token = document.getElementById('syTok').value.trim();
+  if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { toast('Cole a URL do app da Web do Apps Script'); return; }
+  if (!token) { toast('Informe a senha do script'); return; }
+  sync = { url, token, rev: 0, pendente: false };
+  let j;
+  try { status('Conectando…', 'warn'); j = await apiGet(); }
+  catch (e) { sync = {}; statusAtual(); toast(e.message === 'token' ? 'Senha incorreta (ou TOKEN não trocado no script)' : 'Não consegui acessar o script. Confira a URL e a implantação.'); return; }
+  saveSync();
+  if (!temDados(j.db)) {
+    sync.rev = j.rev; saveSync(); await enviar(true); toast('Conectado. Dados enviados para a planilha ✓');
+  } else if (!temDados(db) || confirm('A planilha já tem dados. Usar os dados da planilha neste aparelho? (Cancelar = manter os deste aparelho e substituir a planilha)')) {
+    adotar(j.db, j.rev); toast('Conectado. Dados da planilha carregados ✓');
+  } else {
+    await enviar(true); toast('Conectado. Planilha atualizada com os dados deste aparelho ✓');
+  }
+  renderSync();
+});
+document.getElementById('syBaixar').addEventListener('click', async () => {
+  if (sync.pendente && !confirm('Há alterações deste aparelho ainda não enviadas. Baixar mesmo assim e perdê-las?')) return;
+  sync.pendente = false; await baixar(); renderSync();
+});
+document.getElementById('syEnviar').addEventListener('click', async () => {
+  if (!confirm('Substituir os dados da planilha pelos deste aparelho?')) return;
+  await enviar(true); toast('Planilha atualizada ✓'); renderSync();
+});
+document.getElementById('syDesconectar').addEventListener('click', () => {
+  if (!confirm('Desconectar da planilha? Os dados continuam neste aparelho e na planilha.')) return;
+  sync = {}; saveSync(); renderSync();
+});
+
+document.querySelectorAll('#periodo button').forEach(b => b.addEventListener('click', () => {
+  per = +b.dataset.v; document.querySelectorAll('#periodo button').forEach(x => x.classList.toggle('on', x === b)); renderAnalise(kmAtual());
+}));
+$('#relGerar').addEventListener('click', () => gerarRelatorio($('#relAno').value));
+$('#btnCfg').addEventListener('click', () => abrir('ajustes'));
+
+function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); }
+load(); init();
+if (sync.url) baixar(true);
+try { const t = sessionStorage.getItem('motolog.tab'); if (t) abrir(t); } catch {}
+})();
+</script>
+</body>
+</html>
