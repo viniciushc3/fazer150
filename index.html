@@ -223,19 +223,19 @@ body.sheet-aberta .hdate{display:none}
 .vozModal.open{display:flex}
 .vozModal h3{margin:0;text-align:center;font-size:1rem;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .vozModal .medidor{display:flex;align-items:center;justify-content:center;gap:6px;height:80px;margin:12px 0 8px}
-.vmPassos{display:grid;gap:8px;margin:4px 0 12px}
-.vmP{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--card);border:2px solid transparent;transition:border-color .2s,background .2s}
-.vmP .ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--card2);color:var(--muted)}
-.vmP .nm{font-weight:700;font-size:1.05rem}
-.vmP .vl{font-size:1.35rem;font-weight:800;font-variant-numeric:tabular-nums}
-.vmP .ms{grid-column:2 / 4;font-size:.82rem;line-height:1.3}
-.vmP .ms:empty{display:none}
-.vmP[data-st=now]{border-color:var(--accent)}
-.vmP[data-st=now] .ic{background:var(--accent);color:#1c1200}
-.vmP[data-st=ok] .ic{background:var(--ok);color:#06210f}
-.vmP[data-st=ok] .vl{color:var(--ok)}
-.vmP[data-st=warn]{border-color:var(--warn)} .vmP[data-st=warn] .ic{background:var(--warn);color:#241a00} .vmP[data-st=warn] .ms{color:var(--warn)}
-.vmP[data-st=bad]{border-color:var(--bad)} .vmP[data-st=bad] .ic{background:var(--bad);color:#fff} .vmP[data-st=bad] .vl,.vmP[data-st=bad] .ms{color:var(--bad)}
+.vmTopo{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:.9rem;font-weight:600}
+.vozModal h3{font-size:1.6rem;color:var(--text);letter-spacing:0;text-transform:none;margin-top:10px}
+.vmValor{text-align:center;font-size:3.4rem;font-weight:800;line-height:1.1;min-height:1.2em;font-variant-numeric:tabular-nums;margin:8px 0 6px}
+.vmValor.ok{color:var(--ok)} .vmValor.warn{color:var(--warn)} .vmValor.bad{color:var(--bad)}
+.vmMsg{text-align:center;font-size:.95rem;line-height:1.35;min-height:1.3em;margin:6px 0}
+.vmMsg.warn{color:var(--warn)} .vmMsg.bad{color:var(--bad)}
+.vmResumo{display:none;margin:4px 0}
+.vmResumo.on{display:grid;gap:8px}
+.vmResumo div{display:flex;justify-content:space-between;padding:14px 16px;border-radius:14px;background:var(--card);font-size:1.15rem}
+.vmResumo b{font-size:1.3rem}
+.vmOuvi{flex:1;text-align:center;color:var(--muted);font-size:.85rem;margin-top:6px;word-break:break-word}
+.vmBotoes{display:grid;grid-template-columns:1fr 1.6fr;gap:10px}
+.vmBotoes .btn:disabled{opacity:.4}
 .vozModal .vmSt.dica{color:var(--text);font-size:1.05rem;font-weight:600}
 .vozModal .btn.pronto{background:var(--ok);color:#06210f;animation:pulsaOk 1.2s infinite}
 @keyframes pulsaOk{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 14px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
@@ -243,8 +243,8 @@ body.sheet-aberta .hdate{display:none}
 .vozModal .vmSt{text-align:center;font-size:.85rem;color:var(--muted);min-height:1.2em}
 .vozModal .vmTxt{flex:1;overflow:auto;margin:12px 0;font-size:1.3rem;line-height:1.35;font-weight:700;text-align:center;color:var(--text,#e8edf3);word-break:break-word}
 .vozModal .vmTxt:empty::before{content:attr(data-ex);color:var(--muted);font-weight:500;font-size:1.05rem}
-.vozModal .btn{font-size:1.2rem;padding:20px;margin:0}
-.vozModal .vmCancel{margin-top:10px;background:none;border:0;color:var(--muted);font:inherit;font-size:1rem;padding:12px}
+.vozModal .btn{font-size:1.25rem;padding:22px 10px;margin:0}
+.vozModal .vmCancel{background:none;border:0;color:var(--muted);font:inherit;font-size:1rem;padding:10px 4px}
 </style>
 </head>
 <body>
@@ -387,8 +387,8 @@ body.sheet-aberta .hdate{display:none}
     <div class="note vozInfo"></div>
     <form id="fForm">
       <input type="hidden" name="id">
-      <label>Valor total (R$)</label><input type="text" name="valor" class="big" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required>
       <label>Litros</label><input type="text" name="litros" class="big" inputmode="numeric" data-mask="l" autocomplete="off" placeholder="0,000" required>
+      <label>Valor total (R$)</label><input type="text" name="valor" class="big" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required>
       <label>Odômetro (km)</label><input type="text" name="km" class="big" inputmode="numeric" data-mask="km" autocomplete="off" required>
       <p class="note" id="fPpl" style="margin:8px 0 0;min-height:1.2em"></p>
       <button class="btn" type="submit">Salvar registro</button>
@@ -450,14 +450,16 @@ body.sheet-aberta .hdate{display:none}
       </div>
     </form>
 </div></div>
-<div class="vozModal" id="vozModal" role="dialog" aria-modal="true" aria-label="Falando">
-  <h3>Fale agora</h3>
+<div class="vozModal" id="vozModal" role="dialog" aria-modal="true" aria-label="Registro por voz">
+  <div class="vmTopo"><span id="vmEtapa">1 de 3</span><button type="button" class="vmCancel" id="vmCancel">Cancelar</button></div>
+  <h3 id="vmNome">Litros</h3>
   <div class="medidor" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="vmPassos" id="vmPassos"></div>
-  <div class="vmSt" id="vmSt">Ouvindo…</div>
-  <div class="vmTxt" id="vmTxt" aria-live="polite" data-ex="Ex.: quilômetro 84.900, 10 litros e 62 reais"></div>
-  <button type="button" class="btn" id="vmOk">Concluir</button>
-  <button type="button" class="vmCancel" id="vmCancel">Cancelar</button>
+  <div class="vmValor" id="vmValor"></div>
+  <div class="vmSt" id="vmSt"></div>
+  <div class="vmMsg" id="vmMsg"></div>
+  <div class="vmResumo" id="vmResumo"></div>
+  <div class="vmOuvi" id="vmOuvi"></div>
+  <div class="vmBotoes"><button type="button" class="btn sec" id="vmRep">Repetir</button><button type="button" class="btn" id="vmOk">OK</button></div>
 </div>
 <div class="toast" id="toast"></div>
 <div id="relatorio"></div>
@@ -660,7 +662,7 @@ function abrirFolha(t, editando){
   folhaAberta = t;
   if (t === 'f' && !editando) pegarGps();
   if (t === 'm' && !editando) fmtMask(forms.m.km, kmAtual() || null);
-  const primeiro = forms[t].querySelector(t === 'f' ? '[name=valor]' : t === 'm' ? '[name=servico]' : '[name=cat]');
+  const primeiro = forms[t].querySelector(t === 'f' ? '[name=litros]' : t === 'm' ? '[name=servico]' : '[name=cat]');
   setTimeout(() => { try { primeiro.focus({ preventScroll: true }); } catch {} }, 60);
 }
 function fecharFolha(semVoltar){
@@ -1204,98 +1206,122 @@ function prepararVoz(){
     txt.addEventListener('change', () => { if (txt.value.trim()) aplicarFala(t, txt.value); });
     btn.addEventListener('click', () => iniciarVoz(t));
   });
-  $('#vmOk').addEventListener('click', () => encerrarVoz(true));
+  $('#vmOk').addEventListener('click', okEtapa);
+  $('#vmRep').addEventListener('click', repetirEtapa);
   $('#vmCancel').addEventListener('click', () => encerrarVoz(false));
 }
 
-// Passos guiados da fala, na ordem de costume.
-const PASSOS = {
-  f: [ { k:'km', nome:'Quilômetro', dica:'Diga o quilômetro… ex.: quilômetro 84.900', fmt: v => num(v) },
-       { k:'litros', nome:'Litros', dica:'Agora diga os litros… ex.: 10,5 litros', fmt: v => num(v, 3).replace(/0+$/, '').replace(/,$/, '') + ' L' },
-       { k:'valor', nome:'Reais', dica:'Agora diga o valor… ex.: 62 reais', fmt: v => brl(v) } ],
-  m: [ { k:'servico', nome:'Serviço', dica:'Diga o serviço… ex.: troca de óleo', fmt: v => v },
-       { k:'valor', nome:'Custo', dica:'Agora diga o custo… ex.: 55 reais', fmt: v => brl(v) },
-       { k:'km', nome:'Quilômetro', dica:'Agora diga o quilômetro… ex.: quilômetro 84.900', fmt: v => num(v) } ],
-  g: [ { k:'cat', nome:'Categoria', dica:'Diga o que foi… ex.: IPVA, lavagem, estacionamento', fmt: v => v },
-       { k:'valor', nome:'Valor', dica:'Agora diga o valor… ex.: 310 reais', fmt: v => brl(v) } ],
+// ---------- voz por etapas: fala um número, confere, OK ----------
+const ETAPAS = {
+  f: [ { k:'litros', nome:'Litros', ex:'10,5', fmt: v => num(v, 3).replace(/0+$/, '').replace(/,$/, '') + ' L' },
+       { k:'valor', nome:'Valor total', ex:'62 ou 62 e 50', fmt: v => brl(v) },
+       { k:'km', nome:'Odômetro', ex:'84.900', fmt: v => num(v) + ' km' } ],
+  m: [ { k:'valor', nome:'Custo', ex:'55', fmt: v => brl(v) },
+       { k:'km', nome:'Odômetro', ex:'84.900', fmt: v => num(v) + ' km' } ],
+  g: [ { k:'valor', nome:'Valor', ex:'310', fmt: v => brl(v) } ],
 };
-// Confere cada valor ali mesmo, com as mesmas travas do Salvar.
-function conferirPassos(t, r, fechado){
-  const st = {}, ms = {};
-  if (t === 'f'){
-    const f = forms.f, base = { id: f.id.value, data: f.data.value || hoje() };
-    if (r.km !== undefined){
-      const c = conferirAbastecimento({ ...base, km: r.km });
-      if (c.erro && fechado.km){ st.km = 'bad'; ms.km = c.erro; }
-      else if (!c.erro && c.avisos.length){ st.km = 'warn'; ms.km = c.avisos[0]; }
-    }
-    if (r.litros !== undefined){
-      const c = conferirAbastecimento({ ...base, km: 1e9, litros: r.litros, valor: r.valor });
-      const al = (c.avisos || []).filter(a => !/^Você rodou/.test(a));
-      const l = al.filter(a => / L /.test(a) || /^Só /.test(a)), p = al.filter(a => /^Preço/.test(a));
-      if (l.length){ st.litros = 'warn'; ms.litros = l[0]; }
-      if (p.length && r.valor !== undefined){ st.valor = 'warn'; ms.valor = p[0]; }
-    }
-  }
-  return { st, ms };
+// Tira um número do que foi dito. Aceita dígitos ("10,5", "10.5", "84.900", "84 900", "R$ 62") e palavras ("dez e meio", "oitenta e quatro mil e novecentos").
+function numeroFala(texto, k){
+  const frase = semAcento(texto);
+  const ns = numerosFala(tokensFala(texto)).map(n => n.v);
+  if (!ns.length) return null;
+  let v = ns[0];
+  if (k === 'km'){ for (const n of ns.slice(1)) if (n < 1000) v = v * 1000 + n; else v = n; }
+  else if (k === 'valor' && ns.length > 1 && ns[1] < 100) v = ns[0] + ns[1] / 100; // "62 e 50"
+  if (/e meio|e meia/.test(frase) && v % 1 === 0) v += 0.5;
+  if (k === 'km') v = Math.round(v);
+  return v > 0 ? v : null;
 }
-function atualizarPassos(t, texto, final){
-  const passos = PASSOS[t], r = texto ? entenderFala(t, texto) : {};
-  // Um valor está "fechado" quando já se falou algo depois dele (ou o trecho terminou).
-  const fechado = {}; passos.forEach((p, i) => fechado[p.k] = final || passos.slice(i + 1).some(q => r[q.k] !== undefined));
-  const { st, ms } = conferirPassos(t, r, fechado);
-  let proximo = null, ok = 0, ruim = false;
-  $('#vmPassos').innerHTML = passos.map((p, i) => {
-    const v = r[p.k], tem = v !== undefined && v !== null && v !== '';
-    let s = !tem ? 'wait' : st[p.k] || (fechado[p.k] ? 'ok' : 'now');
-    if (!proximo && (s === 'now' || (!tem))){ proximo = p; if (!tem) s = 'now'; }
-    if (s === 'ok' || s === 'warn') ok++; if (s === 'bad') ruim = true;
-    return `<div class="vmP" data-st="${s}"><span class="ic">${s === 'ok' ? '✓' : s === 'bad' ? '!' : s === 'warn' ? '!' : i + 1}</span><span class="nm">${esc(p.nome)}</span><b class="vl">${tem ? esc(p.fmt(v)) : ''}</b><span class="ms">${esc(ms[p.k] || '')}</span></div>`;
-  }).join('');
-  const sts = $('#vmSt'), pronto = ok === passos.length && !ruim;
-  sts.classList.toggle('dica', !!proximo || pronto);
-  sts.textContent = pronto ? 'Tudo certo! Toque em Concluir.' : ruim ? 'Confira o item em vermelho. Você pode falar de novo.' : proximo ? proximo.dica : '';
-  $('#vmOk').classList.toggle('pronto', pronto);
-  return pronto;
+function conferirEtapa(t, k, vals){
+  if (t !== 'f') return {};
+  const f = forms.f, o = { id: f.id.value, data: f.data.value || hoje(), km: vals.km ?? 1e9, litros: vals.litros, valor: vals.valor };
+  const c = conferirAbastecimento(o);
+  if (k === 'km'){ if (c.erro) return { nivel:'bad', msg: c.erro }; const a = c.avisos.find(x => /^Você rodou/.test(x)); return a ? { nivel:'warn', msg: a } : {}; }
+  const al = (c.avisos || []).filter(x => !/^Você rodou/.test(x));
+  if (k === 'litros'){ const a = al.find(x => / L /.test(x) || /^Só /.test(x)); return a ? { nivel:'warn', msg: a } : {}; }
+  if (k === 'valor' && vals.litros){ const a = al.find(x => /^Preço/.test(x)); return a ? { nivel:'warn', msg: a } : {}; }
+  return {};
 }
 
-// Janela de fala: medidor de áudio ao vivo, texto grande e botão Concluir.
 let voz = null;
 const barras = () => document.querySelectorAll('#vozModal .medidor i');
-function iniciarVoz(t, semMedidor){
+function iniciarVoz(t){
   if (!Reconhecedor || voz) return;
-  const modal = $('#vozModal'), vtxt = $('#vmTxt'), st = $('#vmSt');
-  voz = { t, texto: '', aplicar: false, fim: false };
-  vtxt.textContent = ''; modal.classList.add('open'); botoesVoz(t, true); atualizarPassos(t, '', false);
-  const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
-  voz.rec = rec; ouvindo = rec;
-  let silencio = null;
-  // Termina sozinho depois de 4 s calado (só depois de ouvir algo) ou 40 s no total.
-  // Com tudo identificado e certo, conclui sozinho após 2,5 s de pausa.
-  const armar = () => { clearTimeout(silencio); if (voz && voz.texto) silencio = setTimeout(() => encerrarVoz(true), voz.pronto ? 2500 : 4000); };
-  voz.limite = setTimeout(() => encerrarVoz(true), 40000);
-  rec.onresult = e => {
-    let acc = '';
-    for (const res of e.results){ const p = res[0].transcript.trim(); if (!p) continue;
-      if (acc && p.toLowerCase().startsWith(acc.toLowerCase())) acc = p; else if (!acc.toLowerCase().endsWith(p.toLowerCase())) acc = (acc + ' ' + p).trim(); }
-    if (!voz) return; voz.texto = acc; vtxt.textContent = acc; voz.pulso = 1;
-    const ult = e.results[e.results.length - 1]; voz.pronto = atualizarPassos(t, acc, !!(ult && ult.isFinal)); armar();
+  voz = { t, i: 0, vals: {}, texto: '' };
+  $('#vozModal').classList.add('open'); botoesVoz(t, true);
+  ligarMedidor();
+  mostrarEtapa();
+}
+function mostrarEtapa(){
+  const v = voz, et = ETAPAS[v.t], e = et[v.i];
+  $('#vmResumo').classList.remove('on'); $('.vozModal .medidor').style.display = ''; $('#vmValor').style.display = '';
+  $('#vmEtapa').textContent = `${v.i + 1} de ${et.length}`; $('#vmNome').textContent = e.nome;
+  $('#vmRep').textContent = 'Repetir'; $('#vmOk').textContent = v.i === et.length - 1 ? 'OK' : 'OK, próximo';
+  v.valor = null; v.texto = '';
+  pintar('', '', `Diga só o número. Ex.: ${e.ex}`);
+  ouvirEtapa();
+}
+function pintar(valor, nivel, st, msg){
+  const vv = $('#vmValor'); vv.textContent = valor; vv.className = 'vmValor ' + (nivel || (valor ? 'ok' : ''));
+  if (st !== undefined) $('#vmSt').textContent = st;
+  const m = $('#vmMsg'); m.textContent = msg || ''; m.className = 'vmMsg ' + (nivel || '');
+  $('#vmOk').disabled = !voz || voz.valor === null || nivel === 'bad';
+}
+function ouvirEtapa(){
+  const v = voz; if (!v) return;
+  try { v.rec && v.rec.abort(); } catch {}
+  const e = ETAPAS[v.t][v.i];
+  const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 3;
+  v.rec = rec; ouvindo = rec; v.ouvindo = true; botoesVoz(v.t, true);
+  $('#vmOuvi').textContent = 'Ouvindo…';
+  rec.onresult = ev => {
+    if (voz !== v || v.rec !== rec) return;
+    let txt = ''; for (const r of ev.results) txt += r[0].transcript + ' ';
+    txt = txt.trim(); v.texto = txt;
+    // Tenta as alternativas do último trecho se a principal não tiver número.
+    let n = numeroFala(txt, e.k);
+    const ult = ev.results[ev.results.length - 1];
+    if (n === null && ult) for (let a = 1; a < ult.length && n === null; a++) n = numeroFala(ult[a].transcript, e.k);
+    $('#vmOuvi').textContent = 'Ouvi: “' + txt + '”';
+    v.pulso = 1;
+    if (n === null) return;
+    v.valor = n; v.vals[e.k] = n;
+    const c = conferirEtapa(v.t, e.k, v.vals);
+    pintar(e.fmt(n), c.nivel, c.nivel === 'bad' ? 'Toque em Repetir e fale de novo.' : 'Está certo? Toque em OK.', c.msg);
   };
-  rec.onerror = e => {
-    if (e.error === 'aborted') return;
-    // Alguns Androids não deixam o medidor e o reconhecimento usarem o microfone juntos: tenta de novo sem o medidor.
-    if (e.error === 'audio-capture' && voz && voz.stream && !voz.texto){ voz.retentar = true; return; }
-    st.textContent = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : e.error === 'no-speech' ? 'Não ouvi nada. Toque em Cancelar e tente de novo.' : 'Erro no reconhecimento de voz: ' + e.error;
+  rec.onerror = ev => {
+    if (voz !== v || v.rec !== rec || ev.error === 'aborted') return;
+    if (ev.error === 'audio-capture' && v.stream){ pararMedidor(true); v.retentar = true; return; }
+    $('#vmOuvi').textContent = ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Permita o uso do microfone para este site.' : ev.error === 'no-speech' ? 'Não ouvi nada.' : 'Erro no reconhecimento de voz: ' + ev.error;
   };
   rec.onend = () => {
-    if (!voz) return;
-    if (voz.retentar){ const tt = voz.t; pararMedidor(); clearTimeout(voz.limite); voz = null; ouvindo = null; iniciarVoz(tt, true); return; }
-    if (!voz.fim && !voz.aplicar && voz.texto){ encerrarVoz(true); return; } // o navegador parou sozinho: usa o que ouviu
-    if (!voz.fim){ st.textContent = voz.texto ? st.textContent : 'Não ouvi nada. Toque em Cancelar e tente de novo.'; ouvindo = null; botoesVoz(voz.t, false); }
+    if (voz !== v || v.rec !== rec) return;
+    v.ouvindo = false; botoesVoz(v.t, false);
+    if (v.retentar){ v.retentar = false; animarSemMedidor(); ouvirEtapa(); return; }
+    if (v.valor === null){ $('#vmSt').textContent = v.texto ? 'Não achei um número no que você disse. Toque em Repetir.' : 'Toque em Repetir e diga o número.'; if (!v.texto) $('#vmOuvi').textContent = 'Não ouvi nada.'; }
   };
-  voz.armar = armar;
-  try { rec.start(); } catch (err) { st.textContent = 'Não consegui usar o microfone.'; }
-  if (!semMedidor) ligarMedidor(); else animarSemMedidor();
+  try { rec.start(); } catch (err) { $('#vmOuvi').textContent = 'Não consegui usar o microfone.'; }
+}
+function okEtapa(){
+  const v = voz; if (!v || v.valor === null) return;
+  if (v.resumo){ encerrarVoz(true, true); return; }
+  const et = ETAPAS[v.t];
+  if (v.i < et.length - 1){ v.i++; mostrarEtapa(); return; }
+  // Fim: resumo para salvar.
+  try { v.rec && v.rec.abort(); } catch {}
+  v.resumo = true;
+  $('#vmEtapa').textContent = 'Conferir'; $('#vmNome').textContent = 'Tudo certo?'; $('.vozModal .medidor').style.display = 'none'; $('#vmValor').style.display = 'none';
+  pintar('', '', '');
+  $('#vmResumo').innerHTML = et.map(e => `<div><span>${esc(e.nome)}</span><b>${esc(e.fmt(v.vals[e.k]))}</b></div>`).join('');
+  $('#vmResumo').classList.add('on'); $('#vmOuvi').textContent = '';
+  $('#vmOk').textContent = 'Salvar registro'; $('#vmOk').disabled = false; $('#vmRep').textContent = 'Corrigir';
+}
+function repetirEtapa(){
+  const v = voz; if (!v) return;
+  if (v.resumo){ v.resumo = false; v.i = 0; mostrarEtapa(); return; }
+  v.valor = null; delete v.vals[ETAPAS[v.t][v.i].k];
+  pintar('', '', 'Diga só o número. Ex.: ' + ETAPAS[v.t][v.i].ex);
+  ouvirEtapa();
 }
 async function ligarMedidor(){
   const v = voz;
@@ -1328,22 +1354,26 @@ function animarSemMedidor(){
   };
   passo();
 }
-function pararMedidor(){
-  if (!voz) return;
-  cancelAnimationFrame(voz.raf); clearTimeout(voz.raf);
-  if (voz.stream) voz.stream.getTracks().forEach(x => x.stop());
-  if (voz.ctx) voz.ctx.close().catch(() => {});
-  barras().forEach(b => b.style.height = '8px');
+function pararMedidor(soStream, sessao){
+  const v = sessao || voz; if (!v) return;
+  if (!soStream){ cancelAnimationFrame(v.raf); clearTimeout(v.raf); v.raf = null; }
+  else cancelAnimationFrame(v.raf);
+  if (v.stream){ v.stream.getTracks().forEach(x => x.stop()); v.stream = null; }
+  if (v.ctx){ v.ctx.close().catch(() => {}); v.ctx = null; }
+  if (!soStream) barras().forEach(b => b.style.height = '8px');
 }
-function encerrarVoz(aplicar){
+function encerrarVoz(aplicar, salvar){
   if (!voz) return;
-  const v = voz; v.fim = true; v.aplicar = aplicar;
-  pararMedidor(); clearTimeout(v.limite);
-  try { aplicar ? v.rec.stop() : v.rec.abort(); } catch {}
-  voz = null; ouvindo = null; botoesVoz(v.t, false);
+  const v = voz; voz = null;
+  pararMedidor(false, v);
+  try { v.rec && v.rec.abort(); } catch {}
+  ouvindo = null; botoesVoz(v.t, false);
   $('#vozModal').classList.remove('open');
-  const txt = document.querySelector(`.voz[data-voz="${v.t}"] .vozTxt`);
-  if (aplicar && v.texto && folhaAberta === v.t){ txt.value = v.texto; aplicarFala(v.t, v.texto); }
+  if (!aplicar || folhaAberta !== v.t) return;
+  const f = forms[v.t];
+  for (const [k, val] of Object.entries(v.vals)) if (f[k]) fmtMask(f[k], val);
+  if (v.t === 'f') atualizaPpl();
+  if (salvar) f.requestSubmit ? f.requestSubmit() : f.querySelector('button[type=submit]').click();
 }
 
 // ---------- formulários ----------
