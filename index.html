@@ -253,11 +253,11 @@ input[type=file]{padding:9px;font-size:.85rem}
         <input type="hidden" name="id">
         <div class="row">
           <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Km no painel</label><input type="number" name="km" inputmode="numeric" min="0" required></div>
+          <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
         </div>
         <div class="row">
-          <div><label>Litros</label><input type="number" name="litros" step="0.01" inputmode="decimal" min="0" required></div>
-          <div><label>Valor total (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
+          <div><label>Litros</label><input type="text" name="litros" inputmode="numeric" data-mask="l" autocomplete="off" placeholder="0,000" required></div>
+          <div><label>Valor total (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
         </div>
         <p class="note" id="fPpl" style="margin:8px 0 0;min-height:1.2em"></p>
         <label>Combustível</label>
@@ -281,13 +281,13 @@ input[type=file]{padding:9px;font-size:.85rem}
         <input type="hidden" name="id">
         <div class="row">
           <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Km no painel</label><input type="number" name="km" inputmode="numeric" min="0" required></div>
+          <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
         </div>
         <label>Serviço</label>
         <select name="servico" id="mServ" required></select>
         <div id="mOutroBox" class="hidden"><label>Descreva o serviço</label><input type="text" name="outro"></div>
         <div class="row">
-          <div><label>Custo (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
+          <div><label>Custo (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
           <div><label>Oficina (opcional)</label><input type="text" name="oficina"></div>
         </div>
         <label>Observações</label><textarea name="obs" placeholder="Peças, marca do óleo, etc."></textarea>
@@ -307,7 +307,7 @@ input[type=file]{padding:9px;font-size:.85rem}
         <input type="hidden" name="id">
         <div class="row">
           <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Valor (R$)</label><input type="number" name="valor" step="0.01" inputmode="decimal" min="0" required></div>
+          <div><label>Valor (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
         </div>
         <label>Categoria</label>
         <select name="cat">
@@ -554,6 +554,7 @@ function consumos(){
 function abrir(tab){
   document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-'+tab));
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  if (tab === 'manut' && !forms.m.id.value && !forms.m.km.value) fmtMask(forms.m.km, kmAtual() || null);
   window.scrollTo(0,0);
   try { sessionStorage.setItem('motolog.tab', tab); } catch {}
 }
@@ -850,6 +851,16 @@ function item(x, kml, acoes){
   return `<li><span class="ico" style="--c:${cor}">${ICO[x.tipo]}</span><div class="grow"><div class="t">${t}</div><div class="s">${s}</div></div><div style="text-align:right"><div class="amt">${brl(x.valor)}</div>${btns ? `<div class="acts">${btns}</div>` : ''}</div></li>`;
 }
 
+// ---------- máscaras: digita só números, a vírgula entra sozinha ----------
+const MASK = { km: 0, l: 3, brl: 2 };
+function valMask(el){ const d = el.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''); return d ? Number(d) / 10 ** MASK[el.dataset.mask] : null; }
+function fmtMask(el, n){
+  const d = MASK[el.dataset.mask];
+  el.value = (n === null || n === undefined || n === '' || isNaN(n)) ? '' :
+    (el.dataset.mask === 'brl' ? 'R$ ' : '') + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+document.addEventListener('input', e => { const el = e.target; if (el.dataset && el.dataset.mask) fmtMask(el, valMask(el)); });
+
 // ---------- formulários ----------
 const colecao = { f:'abastecimentos', m:'manutencoes', g:'gastos' };
 const forms = { f:$('#fForm'), m:$('#mForm'), g:$('#gForm') };
@@ -863,8 +874,8 @@ function preencherServicos(){
 function resetForm(t){
   const f = forms[t]; f.reset(); f.id.value = '';
   f.data.value = hoje();
-  if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + kmAtual() : '';
-  if (f.km && t === 'm') f.km.value = kmAtual() || '';
+  if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + num(kmAtual()) : '';
+  if (f.km && t === 'm') fmtMask(f.km, kmAtual() || null);
   if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; }
   if (t === 'm') $('#mOutroBox').classList.add('hidden');
   f.foto.value = ''; f.querySelector('.fotoAtual').textContent = '';
@@ -876,6 +887,7 @@ function lerForm(f){
   const o = {};
   for (const el of f.elements){
     if (!el.name || el.name === 'ppl' || el.type === 'file') continue;
+    if (el.dataset.mask){ o[el.name] = valMask(el); continue; }
     o[el.name] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? (el.value === '' ? null : Number(el.value)) : el.value.trim();
   }
   return o;
@@ -910,7 +922,7 @@ for (const [t, f] of Object.entries(forms)){
 
 // preço por litro ao vivo
 const ff = forms.f;
-const atualizaPpl = () => { const l = +ff.litros.value, v = +ff.valor.value; $('#fPpl').innerHTML = (l && v) ? `Preço por litro (calculado): <b style="color:var(--accent2)">${brl(v/l)}</b>` : ''; };
+const atualizaPpl = () => { const l = valMask(ff.litros), v = valMask(ff.valor); $('#fPpl').innerHTML = (l && v) ? `Preço por litro (calculado): <b style="color:var(--accent2)">${brl(v/l)}</b>` : ''; };
 ff.litros.addEventListener('input', atualizaPpl); ff.valor.addEventListener('input', atualizaPpl);
 $('#mServ').addEventListener('change', e => $('#mOutroBox').classList.toggle('hidden', e.target.value !== 'Outro'));
 
@@ -929,7 +941,7 @@ document.addEventListener('click', e => {
   if (t === 'm' && !db.config.intervalos.hasOwnProperty(reg.servico)) { db.config.intervalos[reg.servico] = 0; preencherServicos(); }
   for (const el of f.elements){
     if (!el.name || !(el.name in reg)) continue;
-    if (el.type === 'checkbox') el.checked = !!reg[el.name]; else el.value = reg[el.name] ?? '';
+    if (el.type === 'checkbox') el.checked = !!reg[el.name]; else if (el.dataset.mask) fmtMask(el, reg[el.name]); else el.value = reg[el.name] ?? '';
   }
   if (t === 'f') atualizaPpl();
   f.querySelector('.fotoAtual').innerHTML = reg.foto ? `Recibo já anexado (<a class="recibo" href="${esc(reg.foto)}" target="_blank" rel="noopener">ver</a>). Escolha outra foto para trocar.` : '';
@@ -1022,7 +1034,7 @@ $('#btnCfg').addEventListener('click', () => abrir('ajustes'));
 function init(){ preencherServicos(); renderCfg(); renderSync(); ['f','m','g'].forEach(resetForm); render(); }
 load(); init();
 if (sync.url) baixar(true);
-try { const t = sessionStorage.getItem('motolog.tab'); if (t) abrir(t); } catch {}
+abrir('abast'); // abre direto no abastecimento
 })();
 </script>
 </body>
