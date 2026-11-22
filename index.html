@@ -77,6 +77,7 @@ textarea{min-height:70px;resize:vertical}
 .bar{height:8px;border-radius:99px;background:var(--card2);overflow:hidden;margin-top:8px}
 .bar i{display:block;height:100%;border-radius:99px}
 .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(10px);background:#fff;color:#111;font-weight:600;padding:10px 18px;border-radius:99px;font-size:.88rem;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:9;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast{max-width:calc(100% - 32px);text-align:center;border-radius:16px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .note{font-size:.8rem;color:var(--muted)}
 input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
@@ -334,6 +335,11 @@ input[type=file]{padding:9px;font-size:.85rem}
         <div><label>Km inicial</label><input type="number" id="cfgKm0" inputmode="numeric"></div>
       </div>
       <p class="note">Km inicial: o km da moto quando você começou a usar o app (usado no custo por km).</p>
+      <div class="row">
+        <div><label>Avisar se rodou mais de (km)</label><input type="number" id="cfgAlKm" inputmode="numeric" min="0"></div>
+        <div><label>Avisar se o preço/L variar (%)</label><input type="number" id="cfgAlPreco" inputmode="numeric" min="0"></div>
+      </div>
+      <p class="note">Travas contra erro de digitação no abastecimento. Km menor que o anterior é sempre bloqueado. Km muito acima do anterior, litros acima do tanque ou preço por litro fora do normal pedem confirmação.</p>
     </div>
     <div class="card">
       <h2>Intervalos de manutenção</h2>
@@ -402,7 +408,7 @@ const MESES_PADRAO = { 'Troca de óleo':6, 'Lubrificar / ajustar corrente':1, 'F
 
 const vazio = () => ({
   versao: 1,
-  config: { nome: 'Yamaha Fazer 150', tanque: 15.7, km0: 0,
+  config: { nome: 'Yamaha Fazer 150', tanque: 15.7, km0: 0, alertaKm: 700, alertaPreco: 25,
             intervalos: Object.fromEntries(SERVICOS_PADRAO.map(s => [s.nome, s.km])),
             meses: Object.fromEntries(SERVICOS_PADRAO.map(s => [s.nome, MESES_PADRAO[s.nome] || 0])) },
   abastecimentos: [], manutencoes: [], gastos: []
@@ -525,7 +531,7 @@ const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTime
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ord = arr => [...arr].sort((a,b) => (b.data||'').localeCompare(a.data||'') || (b.km||0)-(a.km||0));
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),Math.max(2200, msg.length*55)); }
 
 function kmAtual(){
   const kms = [...db.abastecimentos, ...db.manutencoes].map(x => Number(x.km)||0);
@@ -861,6 +867,31 @@ function fmtMask(el, n){
 }
 document.addEventListener('input', e => { const el = e.target; if (el.dataset && el.dataset.mask) fmtMask(el, valMask(el)); });
 
+// ---------- travas contra erro de digitação ----------
+// Retorna { erro, campo } para bloquear, ou { avisos: [...] } para pedir confirmação.
+function conferirAbastecimento(o){
+  const outros = db.abastecimentos.filter(a => a.id !== o.id && a.km);
+  const antes = outros.filter(a => (a.data||'') <= o.data).sort((a,b) => b.km - a.km)[0];
+  const depois = outros.filter(a => (a.data||'') > o.data).sort((a,b) => a.km - b.km)[0];
+  if (!o.km) return { erro: 'Informe o km do painel.', campo: 'km' };
+  if (antes && o.km < antes.km) return { erro: `Km menor que o do abastecimento anterior (${num(antes.km)} km em ${dataBR(antes.data)}). Confira o painel.`, campo: 'km' };
+  if (antes && o.km === antes.km) return { erro: `Já existe um abastecimento com ${num(o.km)} km (${dataBR(antes.data)}). Confira o painel ou se é repetido.`, campo: 'km' };
+  if (depois && o.km > depois.km) return { erro: `Km maior que o de um abastecimento posterior (${num(depois.km)} km em ${dataBR(depois.data)}). Confira a data ou o km.`, campo: 'km' };
+  const avisos = [], cfg = db.config;
+  if (antes && cfg.alertaKm && o.km - antes.km > cfg.alertaKm)
+    avisos.push(`Você rodou ${num(o.km - antes.km)} km desde o último abastecimento (${num(antes.km)} km). O normal é até ${num(cfg.alertaKm)} km.`);
+  const tq = Number(cfg.tanque) || 0;
+  if (tq && o.litros > tq) avisos.push(`${num(o.litros,3)} L é mais do que cabe no tanque (${num(tq,1)} L).`);
+  if (o.litros < 1) avisos.push(`Só ${num(o.litros,3)} L abastecidos. Confira se digitou certo.`);
+  const ppl = o.valor / o.litros;
+  const recentes = outros.filter(a => a.litros > 0 && a.valor > 0).sort((a,b) => b.km - a.km).slice(0, 10).map(a => a.valor / a.litros).sort((a,b) => a - b);
+  if (recentes.length >= 3 && cfg.alertaPreco){
+    const med = recentes[Math.floor(recentes.length / 2)], dif = (ppl / med - 1) * 100;
+    if (Math.abs(dif) > cfg.alertaPreco) avisos.push(`Preço por litro de ${brl(ppl)}, ${num(Math.abs(dif))}% ${dif > 0 ? 'acima' : 'abaixo'} do normal (${brl(med)}). Confira os litros e o valor.`);
+  } else if (ppl < 3 || ppl > 12) avisos.push(`Preço por litro de ${brl(ppl)} parece fora do normal. Confira os litros e o valor.`);
+  return { avisos };
+}
+
 // ---------- formulários ----------
 const colecao = { f:'abastecimentos', m:'manutencoes', g:'gastos' };
 const forms = { f:$('#fForm'), m:$('#mForm'), g:$('#gForm') };
@@ -899,6 +930,12 @@ for (const [t, f] of Object.entries(forms)){
     const o = lerForm(f);
     if (t === 'm' && o.servico === 'Outro' && !o.outro){ toast('Descreva o serviço'); return; }
     if (t === 'f' && !o.litros){ toast('Informe os litros'); return; }
+    if (t === 'f' && !o.valor){ toast('Informe o valor total'); return; }
+    if (t === 'f'){
+      const c = conferirAbastecimento(o);
+      if (c.erro){ toast(c.erro); f[c.campo].focus(); return; }
+      if (c.avisos.length && !confirm('Confira antes de salvar:\n\n• ' + c.avisos.join('\n• ') + '\n\nSalvar mesmo assim?')) return;
+    }
     const arq = f.fotoArq.files[0], btn = f.querySelector('button[type=submit]');
     if (!o.id) o.id = uid();
     if (arq){
@@ -954,6 +991,7 @@ document.addEventListener('click', e => {
 // ---------- ajustes ----------
 function renderCfg(){
   $('#cfgNome').value = db.config.nome; $('#cfgTanque').value = db.config.tanque; $('#cfgKm0').value = db.config.km0;
+  $('#cfgAlKm').value = db.config.alertaKm; $('#cfgAlPreco').value = db.config.alertaPreco;
   $('#cfgInt').innerHTML = '<div class="cfg"><span class="hh">Item</span><span class="hh">Km</span><span class="hh">Meses</span>' +
     Object.entries(db.config.intervalos).filter(([n]) => n !== 'Outro').map(([n, v]) =>
     `<span>${esc(n)}</span><input type="number" inputmode="numeric" min="0" data-int="${esc(n)}" value="${v}" aria-label="Intervalo em km"><input type="number" inputmode="numeric" min="0" data-mes="${esc(n)}" value="${db.config.meses[n] || 0}" aria-label="Prazo em meses">`
@@ -963,6 +1001,8 @@ $('#cfgSalvar').addEventListener('click', () => {
   db.config.nome = $('#cfgNome').value.trim() || 'Minha moto';
   db.config.tanque = Number($('#cfgTanque').value) || 0;
   db.config.km0 = Number($('#cfgKm0').value) || 0;
+  db.config.alertaKm = Number($('#cfgAlKm').value) || 0;
+  db.config.alertaPreco = Number($('#cfgAlPreco').value) || 0;
   document.querySelectorAll('[data-int]').forEach(i => db.config.intervalos[i.dataset.int] = Number(i.value) || 0);
   document.querySelectorAll('[data-mes]').forEach(i => db.config.meses[i.dataset.mes] = Number(i.value) || 0);
   save(); render(); toast('Ajustes salvos ✓');
