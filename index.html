@@ -265,8 +265,9 @@ input[type=file]{padding:9px;font-size:.85rem}
         <input type="hidden" name="id">
         <div class="row">
           <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
+          <div><label>Hora</label><input type="time" name="hora"></div>
         </div>
+        <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
         <div class="row">
           <div><label>Litros</label><input type="text" name="litros" inputmode="numeric" data-mask="l" autocomplete="off" placeholder="0,000" required></div>
           <div><label>Valor total (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
@@ -296,8 +297,9 @@ input[type=file]{padding:9px;font-size:.85rem}
         <input type="hidden" name="id">
         <div class="row">
           <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
+          <div><label>Hora</label><input type="time" name="hora"></div>
         </div>
+        <div><label>Km no painel</label><input type="text" name="km" inputmode="numeric" data-mask="km" autocomplete="off" required></div>
         <label>Serviço</label>
         <select name="servico" id="mServ" required></select>
         <div id="mOutroBox" class="hidden"><label>Descreva o serviço</label><input type="text" name="outro"></div>
@@ -324,8 +326,9 @@ input[type=file]{padding:9px;font-size:.85rem}
         <input type="hidden" name="id">
         <div class="row">
           <div><label>Data</label><input type="date" name="data" required></div>
-          <div><label>Valor (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
+          <div><label>Hora</label><input type="time" name="hora"></div>
         </div>
+        <div><label>Valor (R$)</label><input type="text" name="valor" inputmode="numeric" data-mask="brl" autocomplete="off" placeholder="R$ 0,00" required></div>
         <label>Categoria</label>
         <select name="cat">
           <option>IPVA / Licenciamento</option><option>Seguro</option><option>Multa</option>
@@ -549,7 +552,7 @@ const dataBR = iso => iso ? iso.split('-').reverse().join('/') : '';
 const hoje = () => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const ord = arr => [...arr].sort((a,b) => (b.data||'').localeCompare(a.data||'') || (b.km||0)-(a.km||0));
+const ord = arr => [...arr].sort((a,b) => (b.data||'').localeCompare(a.data||'') || (b.hora||'').localeCompare(a.hora||'') || (b.km||0)-(a.km||0));
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),Math.max(2200, msg.length*55)); }
 
 function kmAtual(){
@@ -860,15 +863,15 @@ function item(x, kml, acoes){
   if (x.tipo === 'f'){
     cor = 'var(--fuel)';
     t = `${num(x.litros,2)} L` + (kml ? ` <span class="tag">${num(kml,1)} km/l</span>` : '') + (x.cheio ? '' : ' <span class="tag">parcial</span>');
-    s = `${dataBR(x.data)} · ${num(x.km)} km · ${brl(x.valor/(x.litros||1))}/L${x.posto ? ' · '+esc(x.posto) : ''}`;
+    s = `${dataBR(x.data)}${x.hora ? ' ' + x.hora : ''} · ${num(x.km)} km · ${brl(x.valor/(x.litros||1))}/L${x.posto ? ' · '+esc(x.posto) : ''}`;
   } else if (x.tipo === 'm'){
     cor = 'var(--maint)';
     t = esc(x.servico === 'Outro' && x.outro ? x.outro : x.servico);
-    s = `${dataBR(x.data)} · ${num(x.km)} km${x.oficina ? ' · '+esc(x.oficina) : ''}${x.obs ? '<br>'+esc(x.obs) : ''}`;
+    s = `${dataBR(x.data)}${x.hora ? ' ' + x.hora : ''} · ${num(x.km)} km${x.oficina ? ' · '+esc(x.oficina) : ''}${x.obs ? '<br>'+esc(x.obs) : ''}`;
   } else {
     cor = 'var(--other)';
     t = esc(x.cat);
-    s = `${dataBR(x.data)}${x.desc ? ' · '+esc(x.desc) : ''}`;
+    s = `${dataBR(x.data)}${x.hora ? ' ' + x.hora : ''}${x.desc ? ' · '+esc(x.desc) : ''}`;
   }
   const rec = x.foto ? `<br><a class="recibo" href="${esc(x.foto)}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>recibo</a>` : '';
   s += rec;
@@ -1100,6 +1103,7 @@ function preencherServicos(){
 function resetForm(t){
   const f = forms[t]; f.reset(); f.id.value = '';
   f.data.value = hoje();
+  f.hora.value = new Date().toTimeString().slice(0,5);
   if (f.km && t === 'f') f.km.placeholder = kmAtual() ? 'último: ' + num(kmAtual()) : '';
   if (f.km && t === 'm') fmtMask(f.km, kmAtual() || null);
   if (t === 'f'){ f.cheio.checked = true; $('#fPpl').textContent = ''; f.gps.value = ''; pegarGps(); }
@@ -1172,6 +1176,7 @@ document.addEventListener('click', e => {
     return;
   }
   const f = forms[t];
+  f.hora.value = reg.hora || '';
   if (t === 'm' && !db.config.intervalos.hasOwnProperty(reg.servico)) { db.config.intervalos[reg.servico] = 0; preencherServicos(); }
   for (const el of f.elements){
     if (!el.name || !(el.name in reg)) continue;

@@ -17,9 +17,9 @@ const PLANILHA_ID = '';
 function planilha_() { return PLANILHA_ID ? SpreadsheetApp.openById(PLANILHA_ID) : SpreadsheetApp.getActive(); }
 
 const ABAS = {
-  abastecimentos: { nome: 'Motolog_Abastecimentos', campos: ['id', 'data', 'km', 'litros', 'valor', 'comb', 'posto', 'cheio', 'foto', 'gps'] },
-  manutencoes:    { nome: 'Motolog_Manutencoes',    campos: ['id', 'data', 'km', 'servico', 'outro', 'valor', 'oficina', 'obs', 'foto'] },
-  gastos:         { nome: 'Motolog_Gastos',         campos: ['id', 'data', 'valor', 'cat', 'desc', 'foto'] },
+  abastecimentos: { nome: 'Motolog_Abastecimentos', campos: ['id', 'data', 'hora', 'km', 'litros', 'valor', 'comb', 'posto', 'cheio', 'foto', 'gps'] },
+  manutencoes:    { nome: 'Motolog_Manutencoes',    campos: ['id', 'data', 'hora', 'km', 'servico', 'outro', 'valor', 'oficina', 'obs', 'foto'] },
+  gastos:         { nome: 'Motolog_Gastos',         campos: ['id', 'data', 'hora', 'valor', 'cat', 'desc', 'foto'] },
 };
 const ABA_CONFIG = 'Motolog_Config';
 const PASTA_RECIBOS = 'Motolog Recibos';
@@ -69,7 +69,7 @@ function ler_() {
       const o = {};
       cab.forEach(function (c, i) {
         let v = l[i];
-        if (v instanceof Date) v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        if (v instanceof Date) v = Utilities.formatDate(v, tz, c === 'hora' ? 'HH:mm' : 'yyyy-MM-dd');
         o[c] = v;
       });
       if ('cheio' in o) o.cheio = o.cheio === true || String(o.cheio).toUpperCase() === 'TRUE';
@@ -90,9 +90,9 @@ function gravar_(db) {
     const linhas = [def.campos].concat((db[k] || []).map(function (o) {
       return def.campos.map(function (c) { return o[c] === undefined || o[c] === null ? '' : o[c]; });
     }));
-    // id, data, foto e gps como texto puro, para o Sheets não converter.
+    // id, data, hora, foto e gps como texto puro, para o Sheets não converter.
     def.campos.forEach(function (c, i) {
-      if (['id', 'data', 'foto', 'gps'].indexOf(c) >= 0) sh.getRange(1, i + 1, Math.max(linhas.length, 1), 1).setNumberFormat('@');
+      if (['id', 'data', 'hora', 'foto', 'gps'].indexOf(c) >= 0) sh.getRange(1, i + 1, Math.max(linhas.length, 1), 1).setNumberFormat('@');
     });
     sh.getRange(1, 1, linhas.length, def.campos.length).setValues(linhas);
     sh.setFrozenRows(1);
