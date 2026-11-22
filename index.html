@@ -222,10 +222,26 @@ body.sheet-aberta .hdate{display:none}
 .vozModal{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;background:#0b0f14;padding:calc(24px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom))}
 .vozModal.open{display:flex}
 .vozModal h3{margin:0;text-align:center;font-size:1rem;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
-.vozModal .medidor{display:flex;align-items:center;justify-content:center;gap:6px;height:110px;margin:22px 0 10px}
+.vozModal .medidor{display:flex;align-items:center;justify-content:center;gap:6px;height:80px;margin:12px 0 8px}
+.vmPassos{display:grid;gap:8px;margin:4px 0 12px}
+.vmP{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--card);border:2px solid transparent;transition:border-color .2s,background .2s}
+.vmP .ic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--card2);color:var(--muted)}
+.vmP .nm{font-weight:700;font-size:1.05rem}
+.vmP .vl{font-size:1.35rem;font-weight:800;font-variant-numeric:tabular-nums}
+.vmP .ms{grid-column:2 / 4;font-size:.82rem;line-height:1.3}
+.vmP .ms:empty{display:none}
+.vmP[data-st=now]{border-color:var(--accent)}
+.vmP[data-st=now] .ic{background:var(--accent);color:#1c1200}
+.vmP[data-st=ok] .ic{background:var(--ok);color:#06210f}
+.vmP[data-st=ok] .vl{color:var(--ok)}
+.vmP[data-st=warn]{border-color:var(--warn)} .vmP[data-st=warn] .ic{background:var(--warn);color:#241a00} .vmP[data-st=warn] .ms{color:var(--warn)}
+.vmP[data-st=bad]{border-color:var(--bad)} .vmP[data-st=bad] .ic{background:var(--bad);color:#fff} .vmP[data-st=bad] .vl,.vmP[data-st=bad] .ms{color:var(--bad)}
+.vozModal .vmSt.dica{color:var(--text);font-size:1.05rem;font-weight:600}
+.vozModal .btn.pronto{background:var(--ok);color:#06210f;animation:pulsaOk 1.2s infinite}
+@keyframes pulsaOk{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 14px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
 .vozModal .medidor i{width:10px;border-radius:6px;background:var(--accent);height:8px;transition:height .08s linear}
 .vozModal .vmSt{text-align:center;font-size:.85rem;color:var(--muted);min-height:1.2em}
-.vozModal .vmTxt{flex:1;overflow:auto;margin:18px 0;font-size:1.75rem;line-height:1.35;font-weight:700;text-align:center;color:var(--text,#e8edf3);word-break:break-word}
+.vozModal .vmTxt{flex:1;overflow:auto;margin:12px 0;font-size:1.3rem;line-height:1.35;font-weight:700;text-align:center;color:var(--text,#e8edf3);word-break:break-word}
 .vozModal .vmTxt:empty::before{content:attr(data-ex);color:var(--muted);font-weight:500;font-size:1.05rem}
 .vozModal .btn{font-size:1.2rem;padding:20px;margin:0}
 .vozModal .vmCancel{margin-top:10px;background:none;border:0;color:var(--muted);font:inherit;font-size:1rem;padding:12px}
@@ -437,6 +453,7 @@ body.sheet-aberta .hdate{display:none}
 <div class="vozModal" id="vozModal" role="dialog" aria-modal="true" aria-label="Falando">
   <h3>Fale agora</h3>
   <div class="medidor" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="vmPassos" id="vmPassos"></div>
   <div class="vmSt" id="vmSt">Ouvindo…</div>
   <div class="vmTxt" id="vmTxt" aria-live="polite" data-ex="Ex.: quilômetro 84.900, 10 litros e 62 reais"></div>
   <button type="button" class="btn" id="vmOk">Concluir</button>
@@ -1112,9 +1129,11 @@ function interpretarFala(texto){
   const PREFIXO = ['valor','total','r$','quilometragem','odometro','hodometro','painel','marcando','paguei','deu'];
   const porFim = {}, porIni = {}; nums.forEach(nm => { porFim[nm.j] = nm; porIni[nm.i] = nm; });
   tk.forEach((x, k) => {
-    const u = unidadeDe(x.t); if (!u || r[u] !== undefined) return;
+    const u = unidadeDe(x.t); if (!u) return; // se repetir (correção), vale o último
     const antes = porFim[k-1], depois = porIni[k+1], pre = PREFIXO.includes(semAcento(x.t));
-    let alvo = pre ? (depois && !depois.ok ? depois : null) : (antes && !antes.ok ? antes : (depois && !depois.ok ? depois : null));
+    const livre = n => n && !n.ok ? n : null;
+    // Uma correção (mesma unidade de novo) só vale pelo lado natural da palavra: "84.900 km" ou "valor 62".
+    let alvo = pre ? livre(depois) : r[u] !== undefined ? livre(antes) || (u === 'km' ? livre(depois) : null) : livre(antes) || livre(depois);
     if (alvo){ r[u] = alvo.v; alvo.ok = true; }
   });
   // centavos: "62 reais e 50 centavos"
@@ -1138,14 +1157,18 @@ function interpretarFala(texto){
 }
 
 // Preenche o formulário com o que foi entendido. O usuário confere e salva (as travas continuam valendo).
-function aplicarFala(t, texto){
-  const r = interpretarFala(texto), f = forms[t], feitos = [];
-  const tq = Number(db.config.tanque) || 16;
+// Números sem unidade seguem a ordem de costume: km (>= 1000), litros, valor.
+function entenderFala(t, texto){
+  const r = interpretarFala(texto), tq = Number(db.config.tanque) || 16;
   for (const v of r.soltos){
     if (t !== 'g' && v >= 1000 && r.km === undefined) r.km = v;
     else if (t === 'f' && r.litros === undefined && v <= tq * 2.5) r.litros = v;
     else if (r.valor === undefined) r.valor = v;
   }
+  return r;
+}
+function aplicarFala(t, texto){
+  const r = entenderFala(t, texto), f = forms[t], feitos = [];
   const por = (campo, v, rot) => { if (v === undefined || v === null || !f[campo]) return; if (f[campo].dataset.mask) fmtMask(f[campo], v); else f[campo].value = v; feitos.push(rot(f[campo].value)); };
   if (t !== 'g') por('km', r.km, v => `Km ${v}`);
   if (t === 'f'){ por('litros', r.litros, v => `${v} L`); }
@@ -1185,6 +1208,57 @@ function prepararVoz(){
   $('#vmCancel').addEventListener('click', () => encerrarVoz(false));
 }
 
+// Passos guiados da fala, na ordem de costume.
+const PASSOS = {
+  f: [ { k:'km', nome:'Quilômetro', dica:'Diga o quilômetro… ex.: quilômetro 84.900', fmt: v => num(v) },
+       { k:'litros', nome:'Litros', dica:'Agora diga os litros… ex.: 10,5 litros', fmt: v => num(v, 3).replace(/0+$/, '').replace(/,$/, '') + ' L' },
+       { k:'valor', nome:'Reais', dica:'Agora diga o valor… ex.: 62 reais', fmt: v => brl(v) } ],
+  m: [ { k:'servico', nome:'Serviço', dica:'Diga o serviço… ex.: troca de óleo', fmt: v => v },
+       { k:'valor', nome:'Custo', dica:'Agora diga o custo… ex.: 55 reais', fmt: v => brl(v) },
+       { k:'km', nome:'Quilômetro', dica:'Agora diga o quilômetro… ex.: quilômetro 84.900', fmt: v => num(v) } ],
+  g: [ { k:'cat', nome:'Categoria', dica:'Diga o que foi… ex.: IPVA, lavagem, estacionamento', fmt: v => v },
+       { k:'valor', nome:'Valor', dica:'Agora diga o valor… ex.: 310 reais', fmt: v => brl(v) } ],
+};
+// Confere cada valor ali mesmo, com as mesmas travas do Salvar.
+function conferirPassos(t, r, fechado){
+  const st = {}, ms = {};
+  if (t === 'f'){
+    const f = forms.f, base = { id: f.id.value, data: f.data.value || hoje() };
+    if (r.km !== undefined){
+      const c = conferirAbastecimento({ ...base, km: r.km });
+      if (c.erro && fechado.km){ st.km = 'bad'; ms.km = c.erro; }
+      else if (!c.erro && c.avisos.length){ st.km = 'warn'; ms.km = c.avisos[0]; }
+    }
+    if (r.litros !== undefined){
+      const c = conferirAbastecimento({ ...base, km: 1e9, litros: r.litros, valor: r.valor });
+      const al = (c.avisos || []).filter(a => !/^Você rodou/.test(a));
+      const l = al.filter(a => / L /.test(a) || /^Só /.test(a)), p = al.filter(a => /^Preço/.test(a));
+      if (l.length){ st.litros = 'warn'; ms.litros = l[0]; }
+      if (p.length && r.valor !== undefined){ st.valor = 'warn'; ms.valor = p[0]; }
+    }
+  }
+  return { st, ms };
+}
+function atualizarPassos(t, texto, final){
+  const passos = PASSOS[t], r = texto ? entenderFala(t, texto) : {};
+  // Um valor está "fechado" quando já se falou algo depois dele (ou o trecho terminou).
+  const fechado = {}; passos.forEach((p, i) => fechado[p.k] = final || passos.slice(i + 1).some(q => r[q.k] !== undefined));
+  const { st, ms } = conferirPassos(t, r, fechado);
+  let proximo = null, ok = 0, ruim = false;
+  $('#vmPassos').innerHTML = passos.map((p, i) => {
+    const v = r[p.k], tem = v !== undefined && v !== null && v !== '';
+    let s = !tem ? 'wait' : st[p.k] || (fechado[p.k] ? 'ok' : 'now');
+    if (!proximo && (s === 'now' || (!tem))){ proximo = p; if (!tem) s = 'now'; }
+    if (s === 'ok' || s === 'warn') ok++; if (s === 'bad') ruim = true;
+    return `<div class="vmP" data-st="${s}"><span class="ic">${s === 'ok' ? '✓' : s === 'bad' ? '!' : s === 'warn' ? '!' : i + 1}</span><span class="nm">${esc(p.nome)}</span><b class="vl">${tem ? esc(p.fmt(v)) : ''}</b><span class="ms">${esc(ms[p.k] || '')}</span></div>`;
+  }).join('');
+  const sts = $('#vmSt'), pronto = ok === passos.length && !ruim;
+  sts.classList.toggle('dica', !!proximo || pronto);
+  sts.textContent = pronto ? 'Tudo certo! Toque em Concluir.' : ruim ? 'Confira o item em vermelho. Você pode falar de novo.' : proximo ? proximo.dica : '';
+  $('#vmOk').classList.toggle('pronto', pronto);
+  return pronto;
+}
+
 // Janela de fala: medidor de áudio ao vivo, texto grande e botão Concluir.
 let voz = null;
 const barras = () => document.querySelectorAll('#vozModal .medidor i');
@@ -1192,18 +1266,20 @@ function iniciarVoz(t, semMedidor){
   if (!Reconhecedor || voz) return;
   const modal = $('#vozModal'), vtxt = $('#vmTxt'), st = $('#vmSt');
   voz = { t, texto: '', aplicar: false, fim: false };
-  vtxt.textContent = ''; st.textContent = 'Ouvindo… fale com calma'; modal.classList.add('open'); botoesVoz(t, true);
+  vtxt.textContent = ''; modal.classList.add('open'); botoesVoz(t, true); atualizarPassos(t, '', false);
   const rec = new Reconhecedor(); rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
   voz.rec = rec; ouvindo = rec;
   let silencio = null;
   // Termina sozinho depois de 4 s calado (só depois de ouvir algo) ou 40 s no total.
-  const armar = () => { clearTimeout(silencio); if (voz && voz.texto) silencio = setTimeout(() => encerrarVoz(true), 4000); };
+  // Com tudo identificado e certo, conclui sozinho após 2,5 s de pausa.
+  const armar = () => { clearTimeout(silencio); if (voz && voz.texto) silencio = setTimeout(() => encerrarVoz(true), voz.pronto ? 2500 : 4000); };
   voz.limite = setTimeout(() => encerrarVoz(true), 40000);
   rec.onresult = e => {
     let acc = '';
     for (const res of e.results){ const p = res[0].transcript.trim(); if (!p) continue;
       if (acc && p.toLowerCase().startsWith(acc.toLowerCase())) acc = p; else if (!acc.toLowerCase().endsWith(p.toLowerCase())) acc = (acc + ' ' + p).trim(); }
-    if (!voz) return; voz.texto = acc; vtxt.textContent = acc; voz.pulso = 1; armar();
+    if (!voz) return; voz.texto = acc; vtxt.textContent = acc; voz.pulso = 1;
+    const ult = e.results[e.results.length - 1]; voz.pronto = atualizarPassos(t, acc, !!(ult && ult.isFinal)); armar();
   };
   rec.onerror = e => {
     if (e.error === 'aborted') return;
