@@ -191,6 +191,9 @@ input[type=file]{padding:9px;font-size:.85rem}
 .vozTxt{font-size:.88rem}
 .vozInfo:empty{display:none}
 .vozInfo{margin:0 0 4px}
+
+/* Botão salvar sempre visível, logo acima do menu */
+form .btn[type=submit]{position:sticky;bottom:calc(96px + env(safe-area-inset-bottom));z-index:4;box-shadow:0 0 0 6px var(--card),0 8px 24px rgba(0,0,0,.45)}
 </style>
 </head>
 <body>
@@ -915,7 +918,33 @@ function fmtMask(el, n){
   el.value = (n === null || n === undefined || n === '' || isNaN(n)) ? '' :
     (el.dataset.mask === 'brl' ? 'R$ ' : '') + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
-document.addEventListener('input', e => { const el = e.target; if (el.dataset && el.dataset.mask) fmtMask(el, valMask(el)); });
+// O app controla cada tecla: dígito entra no fim, apagar tira o último dígito.
+// Evita o bug do Android em que o cursor fica no meio e os dígitos se acumulam.
+const fimCursor = el => { try { const n = el.value.length; el.setSelectionRange(n, n); } catch {} };
+document.addEventListener('beforeinput', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.mask || !e.cancelable) return;
+  // Texto todo selecionado: a tecla substitui (ou apaga) tudo.
+  const tudo = el.value && el.selectionStart === 0 && el.selectionEnd === el.value.length;
+  const dig = tudo ? '' : el.value.replace(/\D/g, '').replace(/^0+/, '');
+  let novo = null;
+  if (e.inputType === 'insertText' || e.inputType === 'insertReplacementText'){ const d = (e.data || '').replace(/\D/g, ''); novo = (dig + d).slice(0, 9); }
+  else if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop'){ return; }
+  else if (e.inputType.startsWith('delete')) novo = tudo ? '' : dig.slice(0, -1);
+  else return;
+  e.preventDefault();
+  fmtMask(el, novo ? Number(novo) / 10 ** MASK[el.dataset.mask] : null); fimCursor(el);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.mask || e.isComposing) return;
+  // Colar ou teclados que não avisam antes: reformata e manda o cursor para o fim.
+  const d = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
+  fmtMask(el, d ? Number(d) / 10 ** MASK[el.dataset.mask] : null); fimCursor(el);
+});
+document.addEventListener('compositionend', e => { const el = e.target; if (el.dataset && el.dataset.mask) el.dispatchEvent(new Event('input', { bubbles: true })); });
+const fimSeSemSelecao = el => { if (el.selectionStart === el.selectionEnd) fimCursor(el); };
+document.addEventListener('focusin', e => { const el = e.target; if (el.dataset && el.dataset.mask) setTimeout(() => fimSeSemSelecao(el), 0); });
+document.addEventListener('click', e => { const el = e.target; if (el.dataset && el.dataset.mask) fimSeSemSelecao(el); });
 
 // ---------- travas contra erro de digitação ----------
 // Retorna { erro, campo } para bloquear, ou { avisos: [...] } para pedir confirmação.
