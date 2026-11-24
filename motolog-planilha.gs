@@ -8,9 +8,15 @@
  * Como funciona:
  * - Cada pessoa cria a conta no app (nome, e-mail e senha). A senha é guardada
  *   embaralhada (hash com sal), nunca em texto.
- * - Todo cadastro novo fica "pendente". O dono da planilha recebe um e-mail e aprova
- *   trocando a coluna "status" para "ativo" na aba Motolog_Usuarios.
- *   (Para bloquear alguém, troque para "bloqueado".)
+ * - Por enquanto, todo cadastro novo já entra "ativo" (APROVACAO_AUTOMATICA = true).
+ *   O dono recebe um e-mail avisando. Para bloquear alguém, troque a coluna "status"
+ *   para "bloqueado" na aba Motolog_Usuarios. Para voltar a aprovar manualmente,
+ *   mude APROVACAO_AUTOMATICA para false (aí o cadastro fica "pendente" até você
+ *   trocar para "ativo").
+ * - A coluna "senha" mostra a senha de cada pessoa, a pedido do dono. O login usa o
+ *   hash. Quem já tinha conta passa a aparecer na coluna no próximo login.
+ * - "Esqueci minha senha": o app pede um código, o script envia por e-mail para o
+ *   endereço cadastrado e a pessoa escolhe uma senha nova.
  * - Os registros ficam nas mesmas abas, com a coluna "usuario" (o e-mail da pessoa).
  *   Cada um só vê e altera os próprios dados.
  * - Os registros antigos, sem usuário, pertencem ao dono da planilha.
@@ -33,7 +39,8 @@ const ABAS = {
 };
 const ABA_CONFIG = 'Motolog_Config';
 const ABA_USUARIOS = 'Motolog_Usuarios';
-const CAMPOS_USUARIOS = ['email', 'nome', 'status', 'criado', 'ultimo_acesso', 'sal', 'hash'];
+const CAMPOS_USUARIOS = ['email', 'nome', 'status', 'criado', 'ultimo_acesso', 'sal', 'hash', 'senha'];
+const APROVACAO_AUTOMATICA = true;
 const PASTA_RECIBOS = 'Motolog Recibos';
 const SESSAO_DIAS = 365;
 
@@ -52,6 +59,8 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) { return saida_({ ok: false, erro: 'json' }); }
   if (body.acao === 'cadastro') return saida_(cadastro_(body));
   if (body.acao === 'login') return saida_(login_(body));
+  if (body.acao === 'esqueci') return saida_(esqueci_(body));
+  if (body.acao === 'redefinir') return saida_(redefinir_(body));
 
   const u = sessao_(body.sessao);
   if (!u) return saida_({ ok: false, erro: 'sessao' });
@@ -83,11 +92,24 @@ function abaUsuarios_() {
   let sh = ss.getSheetByName(ABA_USUARIOS);
   if (!sh) {
     sh = ss.insertSheet(ABA_USUARIOS);
-    sh.getRange('A:G').setNumberFormat('@');
+    sh.getRange('A:H').setNumberFormat('@');
     sh.getRange(1, 1, 1, CAMPOS_USUARIOS.length).setValues([CAMPOS_USUARIOS]);
     sh.setFrozenRows(1);
   }
+  // Planilhas criadas antes da coluna "senha": acrescenta o cabeçalho que faltar.
+  const cab = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0];
+  CAMPOS_USUARIOS.forEach(function (c) {
+    if (cab.indexOf(c) < 0) { cab.push(c); const col = cab.length; sh.getRange(1, col).setValue(c); sh.getRange(1, col, Math.max(sh.getMaxRows(), 1), 1).setNumberFormat('@'); }
+  });
   return sh;
+}
+function setCampoUsuario_(linha, campo, valor) {
+  const sh = abaUsuarios_(), cab = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  sh.getRange(linha, cab.indexOf(campo) + 1).setValue(valor);
+}
+function gravarSenha_(linha, senha) {
+  const sal = Utilities.getUuid();
+  setCampoUsuario_(linha, 'sal', sal); setCampoUsuario_(linha, 'hash', hash_(sal, senha)); setCampoUsuario_(linha, 'senha', senha);
 }
 function usuarios_() {
   const sh = abaUsuarios_(), v = sh.getDataRange().getValues(), cab = v.shift();
@@ -95,6 +117,7 @@ function usuarios_() {
     const o = { linha: i + 2 };
     cab.forEach(function (c, j) { o[c] = l[j]; });
     o.email = normEmail_(o.email); o.status = String(o.status || '').trim().toLowerCase();
+    if (APROVACAO_AUTOMATICA && o.status === 'pendente') o.status = 'ativo';
     return o;
   }).filter(function (o) { return o.email; });
 }
@@ -112,18 +135,22 @@ function cadastro_(b) {
   const lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     if (usuarios_().some(function (u) { return u.email === email; })) return { ok: false, erro: 'existe' };
-    const sal = Utilities.getUuid();
-    abaUsuarios_().appendRow([email, nome, 'pendente', new Date().toISOString(), '', sal, hash_(sal, senha)]);
+    const sal = Utilities.getUuid(), sh = abaUsuarios_();
+    const cab = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+    const dados = { email: email, nome: nome, status: APROVACAO_AUTOMATICA ? 'ativo' : 'pendente', criado: new Date().toISOString(), ultimo_acesso: '', sal: sal, hash: hash_(sal, senha), senha: senha };
+    sh.appendRow(cab.map(function (c) { return dados[c] !== undefined ? dados[c] : ''; }));
   } finally { lock.releaseLock(); }
   try {
     MailApp.sendEmail({
       to: dono_(),
       subject: 'Motolog: novo cadastro de ' + (nome || email),
-      htmlBody: '<p><b>' + (nome || '(sem nome)') + '</b> (' + email + ') pediu acesso ao Motolog.</p>' +
-        '<p>Para aprovar, abra a planilha, aba <b>' + ABA_USUARIOS + '</b>, e troque o status de "pendente" para <b>ativo</b>.</p>' +
+      htmlBody: '<p><b>' + (nome || '(sem nome)') + '</b> (' + email + ') ' + (APROVACAO_AUTOMATICA ? 'criou uma conta no Motolog e já pode usar.' : 'pediu acesso ao Motolog.') + '</p>' +
+        (APROVACAO_AUTOMATICA ? '<p>Para tirar o acesso, abra a planilha, aba <b>' + ABA_USUARIOS + '</b>, e troque o status para <b>bloqueado</b>.</p>'
+          : '<p>Para aprovar, abra a planilha, aba <b>' + ABA_USUARIOS + '</b>, e troque o status de "pendente" para <b>ativo</b>.</p>') +
         '<p><a href="' + planilha_().getUrl() + '">Abrir a planilha</a></p>'
     });
-  } catch (err) { /* sem permissão de e-mail ainda: o cadastro fica pendente mesmo assim */ }
+  } catch (err) { /* sem permissão de e-mail ainda: o cadastro vale mesmo assim */ }
+  if (APROVACAO_AUTOMATICA) return Object.assign(login_({ email: email, senha: senha }), { status: 'ativo' });
   return { ok: true, status: 'pendente' };
 }
 function login_(b) {
@@ -137,13 +164,50 @@ function login_(b) {
     return { ok: false, erro: 'credenciais' };
   }
   cache.remove(kf);
+  if (!u.senha) setCampoUsuario_(u.linha, 'senha', senha);
   if (u.status === 'pendente') return { ok: false, erro: 'pendente' };
   if (u.status !== 'ativo') return { ok: false, erro: 'bloqueado' };
   const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
   PropertiesService.getScriptProperties().setProperty('s:' + token, JSON.stringify({ email: email, criado: Date.now() }));
-  abaUsuarios_().getRange(u.linha, CAMPOS_USUARIOS.indexOf('ultimo_acesso') + 1).setValue(new Date().toISOString());
+  setCampoUsuario_(u.linha, 'ultimo_acesso', new Date().toISOString());
   return { ok: true, sessao: token, usuario: { email: email, nome: u.nome || '' } };
 }
+// Esqueci a senha: manda um código de 6 dígitos para o e-mail cadastrado (vale 15 minutos).
+// A resposta é a mesma exista ou não a conta, para ninguém descobrir quem está cadastrado.
+function esqueci_(b) {
+  const email = normEmail_(b.email), cache = CacheService.getScriptCache();
+  const u = usuarios_().filter(function (x) { return x.email === email; })[0];
+  if (u && u.status !== 'bloqueado' && !cache.get('codigo_envio:' + email)) {
+    const codigo = String(Math.floor(100000 + Math.random() * 900000));
+    cache.put('codigo:' + email, JSON.stringify({ c: codigo, t: 0 }), 900);
+    cache.put('codigo_envio:' + email, '1', 60); // no máximo um e-mail por minuto
+    MailApp.sendEmail({ to: email, subject: 'Motolog: código para nova senha ' + codigo,
+      htmlBody: '<p>Seu código para criar uma nova senha no Motolog é:</p><p style="font-size:28px;font-weight:bold;letter-spacing:4px">' + codigo + '</p>' +
+        '<p>Ele vale por 15 minutos. Se não foi você que pediu, ignore este e-mail.</p>' });
+  }
+  return { ok: true };
+}
+function redefinir_(b) {
+  const email = normEmail_(b.email), senha = String(b.senha || ''), cache = CacheService.getScriptCache(), k = 'codigo:' + email;
+  if (senha.length < 6) return { ok: false, erro: 'senha_curta' };
+  const raw = cache.get(k);
+  if (!raw) return { ok: false, erro: 'codigo_expirado' };
+  const c = JSON.parse(raw);
+  if (String(b.codigo || '').trim() !== c.c) {
+    c.t++; if (c.t >= 5) cache.remove(k); else cache.put(k, JSON.stringify(c), 900);
+    return { ok: false, erro: c.t >= 5 ? 'codigo_expirado' : 'codigo' };
+  }
+  cache.remove(k);
+  const u = usuarios_().filter(function (x) { return x.email === email; })[0];
+  if (!u) return { ok: false, erro: 'codigo_expirado' };
+  gravarSenha_(u.linha, senha);
+  // Derruba as sessões antigas dessa pessoa.
+  const props = PropertiesService.getScriptProperties(), todas = props.getProperties();
+  Object.keys(todas).forEach(function (key) { if (key.indexOf('s:') === 0) { try { if (JSON.parse(todas[key]).email === email) props.deleteProperty(key); } catch (e) {} } });
+  CacheService.getScriptCache().remove('falhas:' + email);
+  return login_({ email: email, senha: senha });
+}
+
 // Confere a sessão e se a conta continua ativa (bloquear na planilha derruba o acesso).
 function sessao_(token) {
   if (!token || String(token).length < 40) return null;

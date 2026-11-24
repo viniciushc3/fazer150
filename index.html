@@ -223,6 +223,7 @@ body.sem-login{overflow:hidden}
 .login .seg button.on{background:var(--accent);color:#1c1200}
 .login input{font-size:1.05rem}
 #lgMsg{min-height:1.2em;font-size:.95rem;color:var(--text)}
+.linkbtn{display:block;margin:14px auto 0;background:none;border:0;color:var(--accent);font:inherit;font-weight:600;padding:8px;text-decoration:underline}
 #lgMsg.bad{color:var(--bad)} #lgMsg.ok{color:var(--ok)}
 .avisoTroca{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(5,8,12,.7)}
 .avisoTroca.open{display:flex}
@@ -486,6 +487,19 @@ body.sheet-aberta .hdate{display:none}
       <div id="lgSenha2Box" class="hidden"><label>Repita a senha</label><input type="password" name="senha2" autocomplete="new-password" minlength="6"></div>
       <button class="btn" type="submit" id="lgBtn">Entrar</button>
     </form>
+    <form id="esqForm" class="hidden" autocomplete="off">
+      <h3 style="margin:6px 0 4px">Nova senha</h3>
+      <label>E-mail da conta</label><input type="email" name="email" inputmode="email" autocomplete="username" required>
+      <button class="btn" type="button" id="esqEnviar">Enviar código por e-mail</button>
+      <div id="esqPasso2" class="hidden">
+        <label>Código recebido (6 números)</label><input type="text" name="codigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+        <label>Nova senha</label><input type="password" name="senha" autocomplete="new-password" minlength="6">
+        <label>Repita a nova senha</label><input type="password" name="senha2" autocomplete="new-password" minlength="6">
+        <button class="btn" type="submit" id="esqBtn">Salvar nova senha e entrar</button>
+      </div>
+      <button class="btn sec" type="button" id="esqVoltar">Voltar</button>
+    </form>
+    <button type="button" class="linkbtn" id="lgEsqueci">Esqueci minha senha</button>
     <p class="note" id="lgMsg" aria-live="polite"></p>
     <p class="note" id="lgDica">Você entra uma vez neste aparelho e continua conectado.</p>
   </div>
@@ -664,14 +678,16 @@ function renderModoLogin(){
   $('#lgNomeBox').classList.toggle('hidden', !criar); $('#lgSenha2Box').classList.toggle('hidden', !criar);
   f.senha.autocomplete = criar ? 'new-password' : 'current-password';
   $('#lgBtn').textContent = criar ? 'Criar conta' : 'Entrar';
-  $('#lgDica').textContent = criar ? 'Depois de criar, o dono do app precisa aprovar seu acesso. Você recebe acesso assim que ele aprovar.' : 'Você entra uma vez neste aparelho e continua conectado.';
+  const esq = modoLogin === 'esqueci';
+  $('#loginForm').classList.toggle('hidden', esq); $('#loginModo').classList.toggle('hidden', esq); $('#esqForm').classList.toggle('hidden', !esq); $('#lgEsqueci').classList.toggle('hidden', esq || criar);
+  $('#lgDica').textContent = esq ? 'Vamos mandar um código para o e-mail da sua conta.' : 'Você entra uma vez neste aparelho e continua conectado.';
   if (sync.email && !f.email.value) f.email.value = sync.email;
 }
 function prepararLogin(){
 $('#loginModo').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; modoLogin = b.dataset.m; $('#lgMsg').textContent = ''; renderModoLogin(); });
 const MSG_LOGIN = { credenciais: 'E-mail ou senha incorretos.', pendente: 'Seu cadastro ainda está esperando aprovação do dono do app.', bloqueado: 'Este acesso foi bloqueado. Fale com o dono do app.',
   bloqueio: 'Muitas tentativas erradas. Espere 10 minutos e tente de novo.', existe: 'Já existe uma conta com este e-mail. Use Entrar.', email: 'Confira o e-mail.',
-  senha_curta: 'A senha precisa ter pelo menos 6 caracteres.', token: 'O script da planilha ainda é a versão antiga. Atualize o script e reimplante como nova versão.' };
+  senha_curta: 'A senha precisa ter pelo menos 6 caracteres.', codigo: 'Código errado. Confira o e-mail.', codigo_expirado: 'O código venceu ou foi usado. Peça um novo.', token: 'O script da planilha ainda é a versão antiga. Atualize o script e reimplante como nova versão.' };
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault();
   const f = e.target, msg = $('#lgMsg'), btn = $('#lgBtn');
@@ -683,6 +699,7 @@ $('#loginForm').addEventListener('submit', async e => {
     if (modoLogin === 'criar'){
       const j = await postar({ acao: 'cadastro', email, senha, nome: f.nome.value.trim() });
       if (!j.ok) aviso(MSG_LOGIN[j.erro] || 'Não consegui criar a conta (' + j.erro + ').', 'bad');
+      else if (j.sessao){ f.senha.value = ''; f.senha2.value = ''; aviso(''); await entrou(j); }
       else { aviso('Conta criada! Agora é só esperar o dono do app aprovar. Depois, entre com este e-mail e senha.', 'ok'); modoLogin = 'entrar'; renderModoLogin(); f.senha.value = ''; f.senha2.value = ''; }
     } else {
       const j = await postar({ acao: 'login', email, senha });
@@ -692,8 +709,34 @@ $('#loginForm').addEventListener('submit', async e => {
   } catch { aviso('Sem conexão com a planilha. Confira a internet e tente de novo.', 'bad'); }
   btn.disabled = false;
 });
+  const msgL = (t, cls) => { const m = $('#lgMsg'); m.textContent = t; m.className = 'note ' + (cls || ''); };
+  $('#lgEsqueci').addEventListener('click', () => { modoLogin = 'esqueci'; msgL(''); const ef = $('#esqForm'); ef.email.value = $('#loginForm').email.value; $('#esqPasso2').classList.add('hidden'); renderModoLogin(); });
+  $('#esqVoltar').addEventListener('click', () => { modoLogin = 'entrar'; msgL(''); renderModoLogin(); });
+  $('#esqEnviar').addEventListener('click', async () => {
+    const ef = $('#esqForm'), email = ef.email.value.trim().toLowerCase(), b = $('#esqEnviar');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ msgL('Confira o e-mail.', 'bad'); return; }
+    b.disabled = true; msgL('Enviando…');
+    try { const j = await postar({ acao: 'esqueci', email });
+      if (!j.ok) msgL(MSG_LOGIN[j.erro] || 'Não consegui enviar (' + j.erro + ').', 'bad');
+      else { msgL('Se existir uma conta com esse e-mail, o código chega em instantes. Olhe também o spam.', 'ok'); $('#esqPasso2').classList.remove('hidden'); b.textContent = 'Reenviar código'; ef.codigo.focus(); } }
+    catch { msgL('Sem conexão com a planilha. Confira a internet.', 'bad'); }
+    b.disabled = false;
+  });
+  $('#esqForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const ef = e.target, email = ef.email.value.trim().toLowerCase();
+    if (ef.senha.value.length < 6){ msgL(MSG_LOGIN.senha_curta, 'bad'); return; }
+    if (ef.senha.value !== ef.senha2.value){ msgL('As senhas não são iguais.', 'bad'); return; }
+    $('#esqBtn').disabled = true; msgL('Salvando…');
+    try { const j = await postar({ acao: 'redefinir', email, codigo: ef.codigo.value.trim(), senha: ef.senha.value });
+      if (!j.ok) msgL(MSG_LOGIN[j.erro] || 'Não consegui trocar a senha (' + j.erro + ').', 'bad');
+      else { ef.reset(); modoLogin = 'entrar'; renderModoLogin(); msgL(''); await entrou(j); toast('Senha nova salva ✓'); } }
+    catch { msgL('Sem conexão com a planilha. Confira a internet.', 'bad'); }
+    $('#esqBtn').disabled = false;
+  });
 }
 async function entrou(j){
+  modoLogin = 'entrar';
   const antigo = sync, mesmoDono = !antigo.email || antigo.email === j.usuario.email;
   sync = { url: API_URL, sessao: j.sessao, email: j.usuario.email, nome: j.usuario.nome, rev: mesmoDono ? (antigo.rev || 0) : 0, pendente: mesmoDono && !!antigo.pendente };
   if (!mesmoDono){ db = vazio(); saveLocal(); load(); }
